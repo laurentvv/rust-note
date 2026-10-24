@@ -351,6 +351,11 @@ impl NotepadApp {
 
 impl eframe::App for NotepadApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        static ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !ONCE.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            eprintln!("[6] First update() frame rendered successfully!");
+        }
+
         self.handle_shortcuts(ctx);
 
         // Clear expired notification
