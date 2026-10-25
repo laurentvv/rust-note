@@ -1,4 +1,4 @@
-//! Main Notepad++ Application state and GUI rendering with eframe/egui.
+//! Main rust-note application state and GUI rendering with eframe/egui.
 
 use std::path::PathBuf;
 
@@ -20,7 +20,7 @@ pub enum EditorTheme {
     ClassicLight,
 }
 
-pub struct NotepadApp {
+pub struct RustNoteApp {
     pub docs: Vec<Document>,
     pub active_index: usize,
     pub cli_args: CliArgs,
@@ -46,7 +46,7 @@ pub struct NotepadApp {
     pub show_function_list: bool,
 }
 
-impl NotepadApp {
+impl RustNoteApp {
     #[must_use]
     pub fn new(cc: &eframe::CreationContext<'_>, cli: CliArgs) -> Self {
         // Set visual style: crisp editor palette
@@ -519,7 +519,7 @@ fn language_icon(lang: Option<Language>) -> &'static str {
     }
 }
 
-impl eframe::App for NotepadApp {
+impl eframe::App for RustNoteApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         self.handle_shortcuts(ctx);
 
@@ -859,16 +859,16 @@ impl eframe::App for NotepadApp {
                     }
                     ui.separator();
                     ui.menu_button("Theme", |ui| {
-                        if ui.selectable_label(self.theme == EditorTheme::DarkMode, "Notepad++ Dark Mode").clicked() {
+                        if ui.selectable_label(self.theme == EditorTheme::DarkMode, "rust-note Dark Mode (Obsidian)").clicked() {
                             self.theme = EditorTheme::DarkMode;
                             self.apply_theme(ctx);
-                            self.set_notification("Theme: Notepad++ Dark Mode");
+                            self.set_notification("Theme: rust-note Dark Mode");
                             ui.close();
                         }
-                        if ui.selectable_label(self.theme == EditorTheme::ClassicLight, "Notepad++ Classic Light").clicked() {
+                        if ui.selectable_label(self.theme == EditorTheme::ClassicLight, "rust-note Classic Light").clicked() {
                             self.theme = EditorTheme::ClassicLight;
                             self.apply_theme(ctx);
-                            self.set_notification("Theme: Notepad++ Classic Light");
+                            self.set_notification("Theme: rust-note Classic Light");
                             ui.close();
                         }
                     });
@@ -1077,12 +1077,12 @@ impl eframe::App for NotepadApp {
 
                 // --- HELP (?) ---
                 ui.menu_button("?", |ui| {
-                    if ui.button("About Notepad++").clicked() {
+                    if ui.button("About rust-note").clicked() {
                         self.about.is_open = true;
                         ui.close();
                     }
-                    if ui.button("Notepad++ Home").clicked() {
-                        ctx.open_url(egui::OpenUrl::new_tab("https://notepad-plus-plus.org/"));
+                    if ui.button("Documentation & Sources").clicked() {
+                        ctx.open_url(egui::OpenUrl::new_tab("https://github.com/rust-note/rust-note"));
                         ui.close();
                     }
                 });
@@ -1467,7 +1467,7 @@ impl eframe::App for NotepadApp {
 
                         let comment_prefix = doc.language.unwrap_or(self.current_language).comment_prefix();
                         response.context_menu(|ui| {
-                            ui.label(RichText::new("Notepad++ Context Menu").strong());
+                            ui.label(RichText::new("rust-note Context Menu").strong());
                             ui.separator();
                             if ui.button("Undo\tCtrl+Z").clicked() {
                                 doc.undo();

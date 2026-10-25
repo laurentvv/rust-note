@@ -1,5 +1,5 @@
 //! Syntax highlighting definitions and token classification.
-//! Recovered from Notepad++ `langs.model.xml`.
+//! Syntax language definitions and file extension detection.
 
 use std::path::Path;
 
@@ -129,7 +129,7 @@ impl Language {
         }
     }
 
-    /// Detects language by file extension from Notepad++ `langs.model.xml`.
+    /// Detects language by file extension.
     #[must_use]
     pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
         let ext = path

@@ -1,4 +1,4 @@
-//! Standard Notepad++ plugins: MIME Tools, Converter and Exporter.
+//! Standard plugins: MIME Tools, Converter and Exporter.
 //! Recovered from `mimeTools.dll`, `NppConverter.dll` and `NppExport.dll`.
 
 use base64::prelude::*;
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_base64_roundtrip() {
-        let orig = "Notepad++ Rust Port 2026!";
+        let orig = "rust-note 2026!";
         let encoded = base64_encode(orig);
         let decoded = base64_decode(&encoded).expect("decode failed");
         assert_eq!(orig, decoded);
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_url_roundtrip() {
-        let orig = "https://notepad-plus-plus.org/download/v8.7.html?q=rust port";
+        let orig = "https://rust-note.org/download/v0.1.html?q=rust port";
         let encoded = url_encode(orig);
         let decoded = url_decode(&encoded).expect("decode failed");
         assert_eq!(orig, decoded);

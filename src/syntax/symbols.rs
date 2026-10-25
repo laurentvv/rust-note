@@ -1,5 +1,4 @@
 //! Outline symbol extraction for the Function List panel.
-//! Inspired by Notepad++ `functionList/*.xml` parser patterns.
 
 use super::Language;
 

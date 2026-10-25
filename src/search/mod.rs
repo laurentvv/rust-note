@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_plain_search_and_replace() {
-        let text = "Notepad++ is great. notepad++ in rust!";
+        let text = "rust-note is great. rust-note in rust!";
         let opts = SearchOptions {
             match_case: false,
             whole_word: false,
@@ -130,13 +130,13 @@ mod tests {
             search_down: true,
         };
 
-        let matches = find_all(text, "notepad++", &opts).unwrap();
+        let matches = find_all(text, "rust-note", &opts).unwrap();
         assert_eq!(matches.len(), 2);
         assert_eq!(matches[0].line, 1);
 
-        let (replaced, count) = replace_all(text, "notepad++", "notepadpp-rs", &opts).unwrap();
+        let (replaced, count) = replace_all(text, "rust-note", "editor", &opts).unwrap();
         assert_eq!(count, 2);
-        assert_eq!(replaced, "notepadpp-rs is great. notepadpp-rs in rust!");
+        assert_eq!(replaced, "editor is great. editor in rust!");
     }
 
     #[test]

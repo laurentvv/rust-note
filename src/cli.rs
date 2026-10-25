@@ -1,4 +1,4 @@
-//! Notepad++ command-line arguments parser.
+//! rust-note command-line arguments parser.
 
 use std::path::PathBuf;
 
@@ -19,7 +19,7 @@ pub struct CliArgs {
 }
 
 impl CliArgs {
-    /// Parses CLI arguments adhering to Notepad++ single-dash syntax.
+    /// Parses CLI arguments adhering to standard single-dash syntax.
     #[must_use]
     pub fn parse_from<I, T>(args: I) -> Self
     where
@@ -77,7 +77,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_notepadpp_cli_flags() {
+    fn test_cli_flags() {
         let args = vec![
             "-nosession",
             "-multiInst",

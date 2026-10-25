@@ -202,7 +202,7 @@ pub fn render_go_to_line(
     action
 }
 
-/// Renders the About Notepad++ dialog.
+/// Renders the About rust-note dialog.
 pub fn render_about(ctx: &Context, state: &mut AboutState) {
     if !state.is_open {
         return;
@@ -211,20 +211,18 @@ pub fn render_about(ctx: &Context, state: &mut AboutState) {
     let mut open_window = true;
     let mut close_requested = false;
 
-    Window::new("About Notepad++")
+    Window::new("About rust-note")
         .open(&mut open_window)
         .resizable(false)
         .default_size([420.0, 220.0])
         .show(ctx, |ui| {
-            ui.heading("Notepad++ v8.9.8.1 (Rust clean-room)");
-            ui.label("A complete, fast, and multi-encoding code editor built with Rust and egui.");
+            ui.heading("rust-note v0.1.0");
+            ui.label("A modern, elegant, and high-performance code editor built with Rust and egui.");
             ui.separator();
-            ui.label("Original Creator: Don HO <don.h@free.fr>");
-            ui.label("Clean-Room Implementation: Laurent VOLFF");
-            ui.label("Architecture: Scintilla-compatible multi-tab buffer");
+            ui.label("Author: Laurent VOLFF");
+            ui.label("Engine Architecture: High-performance multi-tab text buffer");
             ui.separator();
-            ui.hyperlink_to("Notepad++ Official Site", "https://notepad-plus-plus.org/");
-            ui.hyperlink_to("Source & Docs in D:\\GIT\\notepadpp-rs", "https://github.com/notepad-plus-plus/notepad-plus-plus");
+            ui.hyperlink_to("Source & Docs in D:\\GIT\\rust-note", "https://github.com/rust-note/rust-note");
             ui.add_space(8.0);
             if ui.button("OK").clicked() {
                 close_requested = true;

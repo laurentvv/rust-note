@@ -1,4 +1,4 @@
-//! Notepad++ clean-room reimplementation in Rust.
+//! rust-note — Modern, high-performance clean-room code and text editor in Rust.
 #![allow(clippy::collapsible_if)]
 
 pub mod app;
@@ -10,7 +10,7 @@ pub mod search;
 pub mod syntax;
 pub mod ui;
 
-use app::NotepadApp;
+use app::RustNoteApp;
 use cli::CliArgs;
 use eframe::egui;
 
@@ -18,15 +18,18 @@ fn main() -> eframe::Result<()> {
     let cli = CliArgs::parse();
 
     let window_title = if let Some(ref add) = cli.title_add {
-        format!("Notepad++ (Rust) - {add}")
+        format!("rust-note - {add}")
     } else {
-        "Notepad++ (Rust)".to_string()
+        "rust-note".to_string()
     };
+
+    let app_icon = ui::icon::generate_app_icon();
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1180.0, 760.0])
         .with_min_inner_size([600.0, 400.0])
         .with_title(window_title)
+        .with_icon(app_icon)
         .with_visible(true)
         .with_active(true);
 
@@ -41,10 +44,10 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Notepad++",
+        "rust-note",
         options,
         Box::new(move |cc| {
-            let app = NotepadApp::new(cc, cli);
+            let app = RustNoteApp::new(cc, cli);
             Ok(Box::new(app))
         }),
     )

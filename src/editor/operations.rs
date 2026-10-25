@@ -1,4 +1,4 @@
-//! Text and line editing operations matching Notepad++ Edit menu commands.
+//! Text and line editing operations matching Edit menu commands.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CaseMode {

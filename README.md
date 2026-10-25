@@ -1,6 +1,6 @@
-# notepadpp-rs — Notepad++ Clean-Room Reimplementation in Rust
+# rust-note — Modern Clean-Room Code & Text Editor in Rust
 
-A pure-Rust, modern reimplementation of the Notepad++ source code editor suite, featuring complete GUI interface fidelity, Scintilla-inspired multi-tab buffer architecture, comprehensive text manipulation functions, encoding & EOL conversion, robust search/replace engine, and CLI parameter compatibility.
+A pure-Rust, modern reimplementation of the Notepad++ source code editor suite, featuring complete GUI interface fidelity, Scintilla-inspired multi-tab buffer architecture, procedural application icon, comprehensive text manipulation functions, encoding & EOL conversion, robust search/replace engine, and CLI parameter compatibility.
 
 Created via clean-room reverse engineering and resource reconnaissance with `universal-asset-ripper`.
 
