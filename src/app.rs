@@ -1421,58 +1421,101 @@ impl eframe::App for RustNoteApp {
                 return;
             }
 
-            let doc = &mut self.docs[active_idx];
+            let available_size = ui.available_size();
             let font = FontId::monospace(self.font_size);
+            let current_lang = self.current_language;
+            let show_line_nums = self.show_line_numbers;
+            let word_wrap = self.word_wrap;
 
-            ui.horizontal(|ui| {
-                // Line numbers gutter
-                if self.show_line_numbers {
-                    let total_lines = doc.line_count();
-                    let gutter_text: String = (1..=total_lines)
-                        .map(|n| format!("{n}\n"))
-                        .collect();
+            ui.allocate_ui_with_layout(
+                available_size,
+                egui::Layout::left_to_right(egui::Align::Min),
+                |ui| {
+                    ui.set_min_height(available_size.y);
 
-                    ui.vertical(|ui| {
-                        ScrollArea::vertical()
-                            .id_salt("gutter_scroll")
-                            .show(ui, |ui| {
-                                ui.add(
-                                    egui::Label::new(
-                                        RichText::new(gutter_text)
-                                            .font(font.clone())
-                                            .color(Color32::from_rgb(110, 110, 110)),
-                                    )
-                                    .selectable(false),
-                                );
-                            });
-                    });
-                    ui.separator();
-                }
+                    let doc = &mut self.docs[active_idx];
 
-                // Editor Text Area
-                ScrollArea::both()
-                    .id_salt("editor_scroll")
-                    .show(ui, |ui| {
-                        let text_edit = egui::TextEdit::multiline(&mut doc.content)
-                            .font(font)
-                            .desired_width(f32::INFINITY)
-                            .desired_rows(35)
-                            .lock_focus(true);
+                    // Line numbers gutter
+                    if show_line_nums {
+                        let total_lines = doc.line_count();
+                        let gutter_text: String = (1..=total_lines)
+                            .map(|n| format!("{n}\n"))
+                            .collect();
 
-                        let response = ui.add(text_edit);
+                        let max_digits = total_lines.to_string().len().max(2);
+                        let char_approx_width = font.size * 0.62;
+                        let gutter_width = (max_digits as f32 * char_approx_width) + 24.0;
 
-                        if response.changed() {
-                            doc.is_dirty = true;
-                        }
+                        ui.allocate_ui_with_layout(
+                            egui::Vec2::new(gutter_width, available_size.y),
+                            egui::Layout::top_down(egui::Align::Min),
+                            |ui| {
+                                ScrollArea::vertical()
+                                    .id_salt("gutter_scroll")
+                                    .auto_shrink([false, false])
+                                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                                    .vertical_scroll_offset(doc.scroll_offset)
+                                    .show(ui, |ui| {
+                                        ui.add(
+                                            egui::Label::new(
+                                                RichText::new(gutter_text)
+                                                    .font(font.clone())
+                                                    .color(Color32::from_rgb(110, 110, 110)),
+                                            )
+                                            .selectable(false),
+                                        );
+                                    });
+                            },
+                        );
 
-                        let comment_prefix = doc.language.unwrap_or(self.current_language).comment_prefix();
-                        response.context_menu(|ui| {
-                            ui.label(RichText::new("rust-note Context Menu").strong());
-                            ui.separator();
-                            if ui.button("Undo\tCtrl+Z").clicked() {
-                                doc.undo();
-                                ui.close();
+                        ui.separator();
+                    }
+
+                    // Editor Text Area (Takes all remaining width and 100% full height)
+                    let editor_avail_size = ui.available_size();
+
+                    ui.style_mut().wrap_mode = if word_wrap {
+                        Some(egui::TextWrapMode::Wrap)
+                    } else {
+                        Some(egui::TextWrapMode::Extend)
+                    };
+
+                    let scroll_output = ScrollArea::both()
+                        .id_salt("editor_scroll")
+                        .auto_shrink([false, false])
+                        .min_scrolled_height(editor_avail_size.y)
+                        .min_scrolled_width(editor_avail_size.x)
+                        .show(ui, |ui| {
+                            let text_edit = egui::TextEdit::multiline(&mut doc.content)
+                                .font(font)
+                                .desired_width(f32::INFINITY)
+                                .min_size(egui::Vec2::new(editor_avail_size.x, editor_avail_size.y))
+                                .frame(false)
+                                .lock_focus(true);
+
+                            let response = ui.add(text_edit);
+
+                            if response.changed() {
+                                doc.is_dirty = true;
                             }
+
+                            // Synchronize cursor position (Ln / Col) from text selection state
+                            if let Some(state) = egui::text_edit::TextEdit::load_state(ui.ctx(), response.id) {
+                                if let Some(range) = state.cursor.char_range() {
+                                    let (line, col) = doc.line_col_from_char_index(range.primary.index);
+                                    doc.cursor_line = line;
+                                    doc.cursor_col = col;
+                                }
+                            }
+
+                            let comment_prefix = doc.language.unwrap_or(current_lang).comment_prefix();
+                            response.context_menu(|ui| {
+                                ui.label(RichText::new("rust-note Context Menu").strong());
+                                ui.separator();
+                                if ui.button("Undo\tCtrl+Z").clicked() {
+                                    doc.undo();
+                                    ui.close();
+                                }
                             if ui.button("Redo\tCtrl+Y").clicked() {
                                 doc.redo();
                                 ui.close();
@@ -1583,7 +1626,11 @@ impl eframe::App for RustNoteApp {
                             });
                         });
                     });
-            });
+
+                    // Sync vertical scroll offset for gutter and persistence
+                    doc.scroll_offset = scroll_output.state.offset.y;
+                },
+            );
         });
 
         // 6. Dialog Renderings

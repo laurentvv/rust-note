@@ -26,6 +26,7 @@ pub struct Document {
     pub is_pinned: bool,
     pub cursor_line: usize,
     pub cursor_col: usize,
+    pub scroll_offset: f32,
     pub language: Option<crate::syntax::Language>,
     pub history: History,
 }
@@ -50,6 +51,7 @@ impl Document {
             is_pinned: false,
             cursor_line: 1,
             cursor_col: 1,
+            scroll_offset: 0.0,
             language: None,
             history: History::default(),
         }
@@ -83,6 +85,7 @@ impl Document {
             is_pinned: false,
             cursor_line: 1,
             cursor_col: 1,
+            scroll_offset: 0.0,
             language,
             history: History::default(),
         })
@@ -166,5 +169,42 @@ impl Document {
     #[must_use]
     pub fn byte_len(&self) -> usize {
         self.content.len()
+    }
+
+    /// Returns (line, column) for a given character index (1-indexed).
+    #[must_use]
+    pub fn line_col_from_char_index(&self, char_idx: usize) -> (usize, usize) {
+        let mut line = 1;
+        let mut col = 1;
+        for (i, ch) in self.content.chars().enumerate() {
+            if i >= char_idx {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+        (line, col)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_line_col_from_char_index() {
+        let mut doc = Document::new_empty(None);
+        doc.content = "hello\nworld\n!".to_string();
+
+        assert_eq!(doc.line_col_from_char_index(0), (1, 1));
+        assert_eq!(doc.line_col_from_char_index(4), (1, 5));
+        assert_eq!(doc.line_col_from_char_index(5), (1, 6)); // '\n'
+        assert_eq!(doc.line_col_from_char_index(6), (2, 1)); // 'w'
+        assert_eq!(doc.line_col_from_char_index(11), (2, 6)); // '\n'
+        assert_eq!(doc.line_col_from_char_index(12), (3, 1)); // '!'
     }
 }
