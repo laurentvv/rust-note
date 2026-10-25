@@ -30,6 +30,8 @@ pub struct NotepadApp {
     pub goto_line: GoToLineState,
     pub about: AboutState,
     pub summary: SummaryState,
+    pub conversion_panel: plugins::ConversionPanelState,
+    pub symbol_filter: String,
 
     // Editor settings
     pub font_size: f32,
@@ -83,9 +85,18 @@ impl NotepadApp {
             docs.push(doc);
         }
 
+        if let Some(doc) = docs.first_mut() {
+            if let Some(l) = cli.line {
+                doc.cursor_line = l;
+            }
+            if let Some(c) = cli.col {
+                doc.cursor_col = c;
+            }
+        }
+
         let initial_lang = docs.first().and_then(|d| d.language).unwrap_or(Language::PlainText);
 
-        Self {
+        let app = Self {
             docs,
             active_index: 0,
             cli_args: cli,
@@ -93,6 +104,8 @@ impl NotepadApp {
             goto_line: GoToLineState::default(),
             about: AboutState::default(),
             summary: SummaryState::default(),
+            conversion_panel: plugins::ConversionPanelState::default(),
+            symbol_filter: String::new(),
             font_size: 14.0,
             show_line_numbers: true,
             word_wrap: true,
@@ -103,15 +116,35 @@ impl NotepadApp {
             status_notification: None,
             closed_docs: Vec::new(),
             show_function_list: false,
-        }
+        };
+        app.apply_theme(&cc.egui_ctx);
+        app
     }
 
     pub fn apply_theme(&self, ctx: &Context) {
         match self.theme {
             EditorTheme::DarkMode => {
                 let mut visuals = egui::Visuals::dark();
-                visuals.panel_fill = Color32::from_rgb(32, 32, 32);
-                visuals.window_fill = Color32::from_rgb(45, 45, 45);
+                visuals.panel_fill = Color32::from_rgb(24, 24, 37); // Mocha crust / Obsidian
+                visuals.window_fill = Color32::from_rgb(30, 30, 46); // Mocha base
+                visuals.extreme_bg_color = Color32::from_rgb(17, 17, 27); // Mocha mantle
+                visuals.faint_bg_color = Color32::from_rgb(24, 24, 37);
+                visuals.window_corner_radius = egui::CornerRadius::same(8);
+                visuals.menu_corner_radius = egui::CornerRadius::same(6);
+                visuals.window_stroke = egui::Stroke::new(1.0_f32, Color32::from_rgb(49, 50, 68));
+
+                visuals.widgets.noninteractive.corner_radius = egui::CornerRadius::same(6);
+                visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(6);
+                visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(6);
+                visuals.widgets.active.corner_radius = egui::CornerRadius::same(6);
+                visuals.widgets.open.corner_radius = egui::CornerRadius::same(6);
+
+                visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(30, 30, 46);
+                visuals.widgets.hovered.weak_bg_fill = Color32::from_rgb(49, 50, 68);
+                visuals.widgets.active.weak_bg_fill = Color32::from_rgb(69, 71, 90);
+
+                visuals.selection.bg_fill = Color32::from_rgb(69, 71, 90);
+                visuals.selection.stroke = egui::Stroke::new(1.0_f32, Color32::from_rgb(137, 180, 250));
                 ctx.set_visuals(visuals);
             }
             EditorTheme::ClassicLight => {
@@ -125,6 +158,18 @@ impl NotepadApp {
 
     pub fn set_notification(&mut self, msg: impl Into<String>) {
         self.status_notification = Some((msg.into(), std::time::Instant::now()));
+    }
+
+    pub fn copy_full_path(&mut self, ctx: &Context) {
+        if let Some(doc) = self.active_doc() {
+            if let Some(ref path) = doc.path {
+                let s = path.to_string_lossy().to_string();
+                ctx.copy_text(s);
+                self.set_notification("Copied full path to clipboard");
+            } else {
+                self.set_notification("Document has not been saved to disk yet");
+            }
+        }
     }
 
     pub fn active_doc(&self) -> Option<&Document> {
@@ -218,6 +263,41 @@ impl NotepadApp {
                 } else {
                     self.set_notification(format!("Exported HTML to {}", path.display()));
                 }
+            }
+        }
+    }
+
+    pub fn export_current_to_rtf(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().add_filter("Rich Text Format", &["rtf"]).save_file() {
+            if let Some(doc) = self.active_doc() {
+                let rtf = plugins::export_to_rtf(&doc.title, &doc.content);
+                if let Err(e) = std::fs::write(&path, rtf) {
+                    self.set_notification(format!("Export error: {e}"));
+                } else {
+                    self.set_notification(format!("Exported RTF to {}", path.display()));
+                }
+            }
+        }
+    }
+
+    pub fn copy_filename(&mut self, ctx: &Context) {
+        if let Some(doc) = self.active_doc() {
+            let name = doc.title.clone();
+            ctx.copy_text(name);
+            self.set_notification("Copied filename to clipboard");
+        }
+    }
+
+    pub fn copy_directory_path(&mut self, ctx: &Context) {
+        if let Some(doc) = self.active_doc() {
+            if let Some(ref path) = doc.path {
+                if let Some(parent) = path.parent() {
+                    let s = parent.to_string_lossy().to_string();
+                    ctx.copy_text(s);
+                    self.set_notification("Copied directory path to clipboard");
+                }
+            } else {
+                self.set_notification("Document has not been saved to disk yet");
             }
         }
     }
@@ -420,13 +500,27 @@ impl NotepadApp {
     }
 }
 
+fn language_icon(lang: Option<Language>) -> &'static str {
+    match lang {
+        Some(Language::Rust) => "🦀",
+        Some(Language::Python) => "🐍",
+        Some(Language::JavaScript | Language::TypeScript) => "⚡",
+        Some(Language::C | Language::Cpp | Language::Cs) => "⚙",
+        Some(Language::Html | Language::Xml) => "🌐",
+        Some(Language::Markdown) => "📝",
+        Some(Language::Shell | Language::PowerShell | Language::Batch) => "💻",
+        Some(Language::Sql) => "🗄",
+        Some(Language::Json | Language::Toml | Language::Yaml | Language::Ini) => "🔧",
+        Some(Language::Java | Language::Kotlin) => "☕",
+        Some(Language::Go) => "🐹",
+        Some(Language::Lua | Language::GdScript) => "🎮",
+        Some(Language::Assembly) => "🔩",
+        _ => "📄",
+    }
+}
+
 impl eframe::App for NotepadApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        static ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-        if !ONCE.swap(true, std::sync::atomic::Ordering::Relaxed) {
-            eprintln!("[6] First update() frame rendered successfully!");
-        }
-
         self.handle_shortcuts(ctx);
 
         // Clear expired notification
@@ -483,6 +577,25 @@ impl eframe::App for NotepadApp {
                         self.export_current_to_html();
                         ui.close();
                     }
+                    if ui.button("Export to RTF (Rich Text)...").clicked() {
+                        self.export_current_to_rtf();
+                        ui.close();
+                    }
+                    ui.separator();
+                    ui.menu_button("Copy to Clipboard", |ui| {
+                        if ui.button("Copy Full File Path").clicked() {
+                            self.copy_full_path(ctx);
+                            ui.close();
+                        }
+                        if ui.button("Copy Filename").clicked() {
+                            self.copy_filename(ctx);
+                            ui.close();
+                        }
+                        if ui.button("Copy Directory Path").clicked() {
+                            self.copy_directory_path(ctx);
+                            ui.close();
+                        }
+                    });
                     ui.separator();
                     if ui.button("Exit\tAlt+F4").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -889,6 +1002,11 @@ impl eframe::App for NotepadApp {
                     });
 
                     ui.menu_button("Converter", |ui| {
+                        if ui.button("0x Quick Conversion Panel...").clicked() {
+                            self.conversion_panel.is_open = true;
+                            ui.close();
+                        }
+                        ui.separator();
                         if ui.button("ASCII to HEX").clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let hex = plugins::ascii_to_hex(&doc.content);
@@ -927,6 +1045,25 @@ impl eframe::App for NotepadApp {
                             self.export_current_to_html();
                             ui.close();
                         }
+                        if ui.button("Export to RTF (Rich Text)...").clicked() {
+                            self.export_current_to_rtf();
+                            ui.close();
+                        }
+                    });
+
+                    ui.menu_button("NppShell", |ui| {
+                        if ui.button("Copy Full File Path").clicked() {
+                            self.copy_full_path(ctx);
+                            ui.close();
+                        }
+                        if ui.button("Copy Filename").clicked() {
+                            self.copy_filename(ctx);
+                            ui.close();
+                        }
+                        if ui.button("Copy Directory Path").clicked() {
+                            self.copy_directory_path(ctx);
+                            ui.close();
+                        }
                     });
                 });
 
@@ -955,63 +1092,99 @@ impl eframe::App for NotepadApp {
         // 2. Toolbar
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                if ui.button("📄 New").on_hover_text("New (Ctrl+N)").clicked() {
-                    self.new_document();
-                }
-                if ui.button("📂 Open").on_hover_text("Open (Ctrl+O)").clicked() {
-                    self.open_file_dialog();
-                }
-                if ui.button("💾 Save").on_hover_text("Save (Ctrl+S)").clicked() {
-                    self.save_current();
-                }
-                if ui.button("💾💾 All").on_hover_text("Save All (Ctrl+Shift+S)").clicked() {
-                    self.save_all();
-                }
-                if ui.button("❌ Close").on_hover_text("Close (Ctrl+W)").clicked() {
-                    self.close_current();
-                }
-
-                ui.separator();
-
-                if ui.button("↩ Undo").on_hover_text("Undo (Ctrl+Z)").clicked() {
-                    if let Some(doc) = self.active_doc_mut() {
-                        doc.undo();
+                // Group 1: Files
+                ui.horizontal(|ui| {
+                    if ui.button("📄 New").on_hover_text("New Document (Ctrl+N)").clicked() {
+                        self.new_document();
                     }
-                }
-                if ui.button("↪ Redo").on_hover_text("Redo (Ctrl+Y)").clicked() {
-                    if let Some(doc) = self.active_doc_mut() {
-                        doc.redo();
+                    if ui.button("📂 Open").on_hover_text("Open File (Ctrl+O)").clicked() {
+                        self.open_file_dialog();
                     }
-                }
+                    if ui.button("💾 Save").on_hover_text("Save (Ctrl+S)").clicked() {
+                        self.save_current();
+                    }
+                    if ui.button("💾💾 All").on_hover_text("Save All (Ctrl+Shift+S)").clicked() {
+                        self.save_all();
+                    }
+                    if ui.button("❌ Close").on_hover_text("Close Tab (Ctrl+W)").clicked() {
+                        self.close_current();
+                    }
+                });
 
                 ui.separator();
 
-                if ui.button("🔍 Find").on_hover_text("Find (Ctrl+F)").clicked() {
-                    self.find_replace.is_open = true;
-                    self.find_replace.tab = FindTab::Find;
-                }
-                if ui.button("🔁 Replace").on_hover_text("Replace (Ctrl+H)").clicked() {
-                    self.find_replace.is_open = true;
-                    self.find_replace.tab = FindTab::Replace;
-                }
+                // Group 2: History
+                ui.horizontal(|ui| {
+                    if ui.button("↩ Undo").on_hover_text("Undo (Ctrl+Z)").clicked() {
+                        if let Some(doc) = self.active_doc_mut() {
+                            doc.undo();
+                        }
+                    }
+                    if ui.button("↪ Redo").on_hover_text("Redo (Ctrl+Y)").clicked() {
+                        if let Some(doc) = self.active_doc_mut() {
+                            doc.redo();
+                        }
+                    }
+                });
 
                 ui.separator();
 
-                if ui.button("➕ Zoom").on_hover_text("Zoom in").clicked() {
-                    self.font_size = (self.font_size + 2.0).min(36.0);
-                }
-                if ui.button("➖ Zoom").on_hover_text("Zoom out").clicked() {
-                    self.font_size = (self.font_size - 2.0).max(8.0);
-                }
-                if ui.selectable_label(self.word_wrap, "↩ Wrap").clicked() {
-                    self.word_wrap = !self.word_wrap;
-                }
-                if ui.selectable_label(self.show_function_list, "📋 Symbols").on_hover_text("Function List Outline (Ctrl+Alt+L)").clicked() {
-                    self.show_function_list = !self.show_function_list;
-                }
-                if ui.button("📊 Summary").on_hover_text("Document Properties").clicked() {
-                    self.show_summary();
-                }
+                // Group 3: Search
+                ui.horizontal(|ui| {
+                    if ui.button("🔍 Find").on_hover_text("Find (Ctrl+F)").clicked() {
+                        self.find_replace.is_open = true;
+                        self.find_replace.tab = FindTab::Find;
+                    }
+                    if ui.button("🔁 Replace").on_hover_text("Replace (Ctrl+H)").clicked() {
+                        self.find_replace.is_open = true;
+                        self.find_replace.tab = FindTab::Replace;
+                    }
+                });
+
+                ui.separator();
+
+                // Group 4: Tools & Converters (from NppConverter.dll)
+                ui.horizontal(|ui| {
+                    if ui.selectable_label(self.conversion_panel.is_open, "🧮 0x Converter").on_hover_text("Real-Time Multi-Base Quick Converter").clicked() {
+                        self.conversion_panel.is_open = !self.conversion_panel.is_open;
+                    }
+                    if ui.selectable_label(self.show_function_list, "📋 Symbols").on_hover_text("Function List Outline (Ctrl+Alt+L)").clicked() {
+                        self.show_function_list = !self.show_function_list;
+                    }
+                    if ui.button("📊 Summary").on_hover_text("Document Properties").clicked() {
+                        self.show_summary();
+                    }
+                });
+
+                ui.separator();
+
+                // Group 5: View & Zoom
+                ui.horizontal(|ui| {
+                    if ui.button("➕").on_hover_text("Zoom in (Ctrl+Num+)").clicked() {
+                        self.font_size = (self.font_size + 2.0).min(36.0);
+                    }
+                    if ui.button("➖").on_hover_text("Zoom out (Ctrl+Num-)").clicked() {
+                        self.font_size = (self.font_size - 2.0).max(8.0);
+                    }
+                    if ui.selectable_label(self.word_wrap, "↩ Wrap").clicked() {
+                        self.word_wrap = !self.word_wrap;
+                    }
+                });
+
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    let (theme_btn, theme_tip) = if self.theme == EditorTheme::DarkMode {
+                        ("☀️ Light", "Switch to Light Theme")
+                    } else {
+                        ("🌙 Dark", "Switch to Obsidian Dark Theme")
+                    };
+                    if ui.button(theme_btn).on_hover_text(theme_tip).clicked() {
+                        self.theme = match self.theme {
+                            EditorTheme::DarkMode => EditorTheme::ClassicLight,
+                            EditorTheme::ClassicLight => EditorTheme::DarkMode,
+                        };
+                        self.apply_theme(ctx);
+                    }
+                });
             });
         });
 
@@ -1022,19 +1195,83 @@ impl eframe::App for NotepadApp {
                     ScrollArea::horizontal().show(ui, |ui| {
                         ui.horizontal(|ui| {
                             let mut to_close = None;
+                            let mut close_others = None;
+                            let mut copy_path_idx = None;
+                            let mut copy_name_idx = None;
+
                             for (idx, doc) in self.docs.iter().enumerate() {
                                 let is_active = idx == self.active_index;
-                                let marker = if doc.is_dirty { "• " } else { "" };
-                                let label = format!("{}{}", marker, doc.title);
+                                let icon = language_icon(doc.language);
+                                let dirty_dot = if doc.is_dirty { " ●" } else { "" };
+                                let label_text = format!("{icon} {}{dirty_dot}", doc.title);
+
+                                let text_color = if is_active {
+                                    Color32::from_rgb(137, 180, 250) // Soft Accent Blue
+                                } else if doc.is_dirty {
+                                    Color32::from_rgb(250, 179, 135) // Amber
+                                } else {
+                                    Color32::from_rgb(186, 194, 222) // Soft Text
+                                };
 
                                 ui.horizontal(|ui| {
-                                    if ui.selectable_label(is_active, label).clicked() {
+                                    let tab_btn = ui.selectable_label(
+                                        is_active,
+                                        RichText::new(&label_text).color(text_color).strong(),
+                                    );
+                                    if tab_btn.clicked() {
                                         self.active_index = idx;
                                     }
-                                    if ui.small_button("×").on_hover_text("Close tab").clicked() {
+
+                                    tab_btn.context_menu(|ui| {
+                                        if ui.button("Close Tab\tCtrl+W").clicked() {
+                                            to_close = Some(idx);
+                                            ui.close();
+                                        }
+                                        if ui.button("Close Other Tabs").clicked() {
+                                            close_others = Some(idx);
+                                            ui.close();
+                                        }
+                                        ui.separator();
+                                        if ui.button("Copy Full File Path").clicked() {
+                                            copy_path_idx = Some(idx);
+                                            ui.close();
+                                        }
+                                        if ui.button("Copy Filename").clicked() {
+                                            copy_name_idx = Some(idx);
+                                            ui.close();
+                                        }
+                                    });
+
+                                    if ui.small_button("×").on_hover_text("Close tab (Ctrl+W)").clicked() {
                                         to_close = Some(idx);
                                     }
                                 });
+                            }
+
+                            if let Some(idx) = copy_path_idx {
+                                if let Some(doc) = self.docs.get(idx) {
+                                    if let Some(ref p) = doc.path {
+                                        ctx.copy_text(p.to_string_lossy().to_string());
+                                        self.set_notification("Copied full path to clipboard");
+                                    }
+                                }
+                            }
+
+                            if let Some(idx) = copy_name_idx {
+                                if let Some(doc) = self.docs.get(idx) {
+                                    ctx.copy_text(doc.title.clone());
+                                    self.set_notification("Copied filename to clipboard");
+                                }
+                            }
+
+                            if let Some(keep_idx) = close_others {
+                                if keep_idx < self.docs.len() {
+                                    let current = self.docs.remove(keep_idx);
+                                    self.docs.clear();
+                                    self.docs.push(current);
+                                    self.active_index = 0;
+                                    self.set_notification("Closed other tabs");
+                                }
                             }
 
                             if let Some(idx) = to_close {
@@ -1057,7 +1294,7 @@ impl eframe::App for NotepadApp {
                                 }
                             }
 
-                            if ui.button("+").on_hover_text("New tab").clicked() {
+                            if ui.button("+").on_hover_text("New tab (Ctrl+N)").clicked() {
                                 self.new_document();
                             }
                         });
@@ -1073,23 +1310,39 @@ impl eframe::App for NotepadApp {
                     let (lines, chars, bytes) = (doc.line_count(), doc.char_count(), doc.byte_len());
                     let enc = doc.encoding.to_string();
                     let eol = doc.eol.to_string();
+                    let icon = language_icon(doc.language);
 
-                    ui.label(format!("length: {chars}   lines: {lines}   bytes: {bytes}"));
+                    ui.label(
+                        RichText::new(format!("Ln {}, Col {}", doc.cursor_line, doc.cursor_col))
+                            .strong()
+                            .color(Color32::from_rgb(250, 179, 135)),
+                    );
                     ui.separator();
-                    ui.label(format!("Ln: {}  Col: {}", doc.cursor_line, doc.cursor_col));
+                    ui.label(
+                        RichText::new(format!("📊 {chars} chars | {lines} lines | {bytes} B"))
+                            .color(Color32::from_rgb(166, 173, 200)),
+                    );
                     ui.separator();
-                    ui.label(eol);
+                    ui.label(RichText::new(eol).color(Color32::from_rgb(147, 153, 178)));
                     ui.separator();
-                    ui.label(enc);
+                    ui.label(RichText::new(enc).strong().color(Color32::from_rgb(203, 166, 247)));
                     ui.separator();
-                    ui.label(self.current_language.name());
+                    ui.label(
+                        RichText::new(format!("{icon} {}", self.current_language.name()))
+                            .strong()
+                            .color(Color32::from_rgb(137, 220, 235)),
+                    );
                     ui.separator();
-                    ui.label(if doc.is_readonly { "READ ONLY" } else { "INS" });
+                    if doc.is_readonly {
+                        ui.label(RichText::new("🔒 READ ONLY").strong().color(Color32::from_rgb(243, 139, 168)));
+                    } else {
+                        ui.label(RichText::new("✏ INS").strong().color(Color32::from_rgb(166, 227, 161)));
+                    }
                 }
 
                 if let Some((ref msg, _)) = self.status_notification {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(msg).color(Color32::YELLOW));
+                        ui.label(RichText::new(format!("🔔 {msg}")).strong().color(Color32::from_rgb(250, 179, 135)));
                     });
                 }
             });
@@ -1098,12 +1351,12 @@ impl eframe::App for NotepadApp {
         // 4b. Function List Sidebar
         if self.show_function_list {
             egui::SidePanel::right("function_list_sidebar")
-                .default_width(220.0)
-                .min_width(150.0)
-                .max_width(400.0)
+                .default_width(240.0)
+                .min_width(180.0)
+                .max_width(450.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
-                        ui.heading("Function List");
+                        ui.heading("📋 Function List");
                         ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("×").clicked() {
                                 self.show_function_list = false;
@@ -1112,22 +1365,48 @@ impl eframe::App for NotepadApp {
                     });
                     ui.separator();
 
+                    ui.horizontal(|ui| {
+                        ui.label("🔍");
+                        ui.text_edit_singleline(&mut self.symbol_filter);
+                        if !self.symbol_filter.is_empty() && ui.small_button("×").clicked() {
+                            self.symbol_filter.clear();
+                        }
+                    });
+                    ui.separator();
+
                     let active_idx = self.active_index;
                     if let Some(doc) = self.docs.get(active_idx) {
                         let symbols = crate::syntax::extract_symbols(&doc.content, self.current_language);
-                        ui.label(format!("Symbols: {}", symbols.len()));
+                        let filter_lower = self.symbol_filter.to_lowercase();
+                        let filtered: Vec<_> = symbols
+                            .into_iter()
+                            .filter(|s| filter_lower.is_empty() || s.name.to_lowercase().contains(&filter_lower))
+                            .collect();
+
+                        ui.label(
+                            RichText::new(format!("Symbols: {}", filtered.len()))
+                                .color(Color32::from_rgb(166, 173, 200)),
+                        );
                         ui.separator();
 
                         ScrollArea::vertical()
                             .id_salt("function_list_scroll")
                             .show(ui, |ui| {
-                                for sym in symbols {
-                                    let label = format!("{} {}", sym.kind.icon(), sym.name);
-                                    if ui.button(label).on_hover_text(format!("Line {}", sym.line)).clicked() {
+                                for sym in filtered {
+                                    let color = match sym.kind {
+                                        crate::syntax::SymbolKind::Function => Color32::from_rgb(137, 220, 235),
+                                        crate::syntax::SymbolKind::StructOrClass => Color32::from_rgb(166, 227, 161),
+                                        crate::syntax::SymbolKind::InterfaceOrTrait => Color32::from_rgb(203, 166, 247),
+                                        crate::syntax::SymbolKind::Enum => Color32::from_rgb(250, 179, 135),
+                                    };
+
+                                    let label = RichText::new(format!("{} {}", sym.kind.icon(), sym.name)).color(color);
+                                    if ui.button(label).on_hover_text(format!("Jump to line {}", sym.line)).clicked() {
                                         if let Some(doc_mut) = self.docs.get_mut(active_idx) {
                                             doc_mut.cursor_line = sym.line;
                                             doc_mut.cursor_col = 1;
                                         }
+                                        self.set_notification(format!("Jumped to '{}' (line {})", sym.name, sym.line));
                                     }
                                 }
                             });
@@ -1279,6 +1558,29 @@ impl eframe::App for NotepadApp {
                                     ui.close();
                                 }
                             });
+                            ui.separator();
+                            let doc_path = doc.path.clone();
+                            let doc_title = doc.title.clone();
+                            ui.menu_button("Copy Path", |ui| {
+                                if ui.button("Copy Full File Path").clicked() {
+                                    if let Some(ref p) = doc_path {
+                                        ui.ctx().copy_text(p.to_string_lossy().to_string());
+                                    }
+                                    ui.close();
+                                }
+                                if ui.button("Copy Filename").clicked() {
+                                    ui.ctx().copy_text(doc_title.clone());
+                                    ui.close();
+                                }
+                                if ui.button("Copy Directory Path").clicked() {
+                                    if let Some(ref p) = doc_path {
+                                        if let Some(parent) = p.parent() {
+                                            ui.ctx().copy_text(parent.to_string_lossy().to_string());
+                                        }
+                                    }
+                                    ui.close();
+                                }
+                            });
                         });
                     });
             });
@@ -1307,5 +1609,64 @@ impl eframe::App for NotepadApp {
 
         dialogs::render_about(ctx, &mut self.about);
         dialogs::render_summary(ctx, &mut self.summary);
+
+        // 7. 0x Quick Conversion Panel (recovered from NppConverter.dll)
+        if self.conversion_panel.is_open {
+            let mut is_open = true;
+            egui::Window::new("🧮 0x Quick Converter (NppConverter)")
+                .open(&mut is_open)
+                .resizable(false)
+                .default_size([380.0, 240.0])
+                .show(ctx, |ui| {
+                    ui.label(RichText::new("Bidirectional Real-Time Multi-Base Converter").strong());
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.label("DEC: ");
+                        let mut d = self.conversion_panel.dec_val.clone();
+                        if ui.text_edit_singleline(&mut d).changed() {
+                            self.conversion_panel.sync_from_dec(&d);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("HEX: ");
+                        let mut h = self.conversion_panel.hex_val.clone();
+                        if ui.text_edit_singleline(&mut h).changed() {
+                            self.conversion_panel.sync_from_hex(&h);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("BIN: ");
+                        let mut b = self.conversion_panel.bin_val.clone();
+                        if ui.text_edit_singleline(&mut b).changed() {
+                            self.conversion_panel.sync_from_bin(&b);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("OCT: ");
+                        ui.label(RichText::new(&self.conversion_panel.oct_val).monospace());
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("ASCII:");
+                        ui.label(RichText::new(&self.conversion_panel.char_val).monospace().strong());
+                    });
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        if ui.button("Copy HEX").clicked() {
+                            ctx.copy_text(format!("0x{}", self.conversion_panel.hex_val));
+                            self.set_notification("Copied HEX to clipboard");
+                        }
+                        if ui.button("Copy DEC").clicked() {
+                            ctx.copy_text(self.conversion_panel.dec_val.clone());
+                            self.set_notification("Copied DEC to clipboard");
+                        }
+                        if ui.button("Close").clicked() {
+                            self.conversion_panel.is_open = false;
+                        }
+                    });
+                });
+            if !is_open {
+                self.conversion_panel.is_open = false;
+            }
+        }
     }
 }

@@ -15,14 +15,18 @@ use cli::CliArgs;
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
-    eprintln!("[1] Parsing CLI args...");
     let cli = CliArgs::parse();
 
-    eprintln!("[2] Setting up viewport...");
+    let window_title = if let Some(ref add) = cli.title_add {
+        format!("Notepad++ (Rust) - {add}")
+    } else {
+        "Notepad++ (Rust)".to_string()
+    };
+
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1180.0, 760.0])
         .with_min_inner_size([600.0, 400.0])
-        .with_title("Notepad++ (Rust)")
+        .with_title(window_title)
         .with_visible(true)
         .with_active(true);
 
@@ -36,14 +40,11 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
-    eprintln!("[3] Calling eframe::run_native...");
     eframe::run_native(
         "Notepad++",
         options,
         Box::new(move |cc| {
-            eprintln!("[4] Inside app creation closure!");
             let app = NotepadApp::new(cc, cli);
-            eprintln!("[5] App created successfully!");
             Ok(Box::new(app))
         }),
     )

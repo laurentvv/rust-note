@@ -14,6 +14,7 @@ pub struct CliArgs {
     pub col: Option<usize>,
     pub pos: Option<usize>,
     pub language: Option<String>,
+    pub title_add: Option<String>,
     pub files: Vec<PathBuf>,
 }
 
@@ -55,6 +56,8 @@ impl CliArgs {
                 }
             } else if let Some(val) = arg.strip_prefix("-l=").or_else(|| arg.strip_prefix("-l")) {
                 cli.language = Some(val.to_string());
+            } else if let Some(val) = arg.strip_prefix("-titleAdd=").or_else(|| arg.strip_prefix("--titleAdd=")) {
+                cli.title_add = Some(val.trim_matches('"').to_string());
             } else if !arg.starts_with('-') {
                 cli.files.push(PathBuf::from(arg));
             }
@@ -82,6 +85,7 @@ mod tests {
             "-n42",
             "-c10",
             "-lrust",
+            "-titleAdd=\"Project Alpha\"",
             "test.txt",
         ];
         let parsed = CliArgs::parse_from(args);
@@ -91,6 +95,7 @@ mod tests {
         assert_eq!(parsed.line, Some(42));
         assert_eq!(parsed.col, Some(10));
         assert_eq!(parsed.language.as_deref(), Some("rust"));
+        assert_eq!(parsed.title_add.as_deref(), Some("Project Alpha"));
         assert_eq!(parsed.files, vec![PathBuf::from("test.txt")]);
     }
 }
