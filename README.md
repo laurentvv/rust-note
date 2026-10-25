@@ -9,8 +9,23 @@ Created via clean-room reverse engineering and resource reconnaissance with `uni
 ## 🚀 Features
 
 - 📑 **Multi-Document Tab Interface :**
-  - Smooth tab switching, close buttons, dirty (unsaved) indicators, and tab context menus (Close, Close All, Close Others, Pin, Rename).
-- ✍️ **Advanced Text Editing Buffer :**
+  - Smooth tab switching with file type glyphs (🦀 Rust, 🐍 Python, ⚡ JS/TS, 🌐 HTML/XML, ⚙ C/C++, etc.).
+  - Glowing amber dirty indicators (`●`) and hoverable tab close buttons (`×`).
+  - Comprehensive tab context menus (Close, Close Others, Copy Full Path, Copy Filename).
+  - Recently closed tab restoration (`Ctrl+Shift+T`).
+- 🎨 **Modern Aesthetic & Theme Engine :**
+  - Obsidian Slate & Tokyo Night dark theme palette (`#181825`, `#1e1e2e`, `#11111b`) and Classic Light theme with instant toggle.
+  - Colored status bar pill badges: Line & Column (amber), Document statistics, EOL format, Encoding (lavender), Language (cyan), and Edit Mode (`INS` emerald / `READ ONLY` crimson).
+  - Real-time status notification toasts.
+- 📋 **Function List Outline & Symbol Navigation :**
+  - Sidebar with real-time symbol search filter (`🔍 Filter symbols...`).
+  - Colored symbol kinds: Functions (`ƒ`), Structs/Classes (`◈`), Traits/Interfaces (`◇`), Enums/Constants (`≡`).
+  - One-click navigation jumping directly to symbol line in document.
+- 🧩 **Built-in Tools & Plugins (Recovered via Native NSA Ghidra Decompiler) :**
+  - **NppConverter :** Interactive floating **0x Quick Converter** panel with bidirectional real-time synchronization between Decimal, Hexadecimal, Binary, Octal, and ASCII Char; ASCII to HEX, HEX to ASCII, DEC to HEX, HEX to DEC.
+  - **NppExport :** RTF export (`.rtf` Rich Text Format) and HTML export with syntax formatting.
+  - **NppShell :** Copy Full File Path, Copy Filename, and Copy Directory Path directly to clipboard.
+  - **MIME Tools :** Base64 Encode / Decode, URL Encode / Decode, Quoted-Printable Encode.
   - Full Undo / Redo history stack.
   - Multi-encoding support: UTF-8, UTF-8 with BOM, UTF-16 LE, UTF-16 BE, Windows-1252 (ANSI).
   - Multi-EOL support: Windows (`CRLF`), Unix (`LF`), Macintosh (`CR`) with real-time conversion.
