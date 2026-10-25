@@ -209,6 +209,19 @@ impl NotepadApp {
         self.set_notification(format!("Saved {count} documents"));
     }
 
+    pub fn export_current_to_html(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().add_filter("HTML Document", &["html", "htm"]).save_file() {
+            if let Some(doc) = self.active_doc() {
+                let html = plugins::export_to_html(&doc.title, &doc.content, self.current_language.name());
+                if let Err(e) = std::fs::write(&path, html) {
+                    self.set_notification(format!("Export error: {e}"));
+                } else {
+                    self.set_notification(format!("Exported HTML to {}", path.display()));
+                }
+            }
+        }
+    }
+
     pub fn restore_closed_document(&mut self) {
         if let Some(doc) = self.closed_docs.pop() {
             let title = doc.title.clone();
@@ -463,6 +476,11 @@ impl eframe::App for NotepadApp {
                     }
                     if ui.button("Restore Closed Tab\tCtrl+Shift+T").clicked() {
                         self.restore_closed_document();
+                        ui.close();
+                    }
+                    ui.separator();
+                    if ui.button("Export to HTML...").clicked() {
+                        self.export_current_to_html();
                         ui.close();
                     }
                     ui.separator();
@@ -861,6 +879,13 @@ impl eframe::App for NotepadApp {
                             }
                             ui.close();
                         }
+                        if ui.button("Quoted-Printable Encode").clicked() {
+                            if let Some(doc) = self.active_doc_mut() {
+                                let enc = plugins::quoted_printable_encode(&doc.content);
+                                doc.set_content(enc);
+                            }
+                            ui.close();
+                        }
                     });
 
                     ui.menu_button("Converter", |ui| {
@@ -877,6 +902,29 @@ impl eframe::App for NotepadApp {
                                     doc.set_content(asc);
                                 }
                             }
+                            ui.close();
+                        }
+                        if ui.button("DEC to HEX (0x...)").clicked() {
+                            if let Some(doc) = self.active_doc_mut() {
+                                if let Ok(hex) = plugins::dec_to_hex(&doc.content) {
+                                    doc.set_content(hex);
+                                }
+                            }
+                            ui.close();
+                        }
+                        if ui.button("HEX to DEC").clicked() {
+                            if let Some(doc) = self.active_doc_mut() {
+                                if let Ok(dec) = plugins::hex_to_dec(&doc.content) {
+                                    doc.set_content(dec);
+                                }
+                            }
+                            ui.close();
+                        }
+                    });
+
+                    ui.menu_button("NppExport", |ui| {
+                        if ui.button("Export to HTML...").clicked() {
+                            self.export_current_to_html();
                             ui.close();
                         }
                     });
