@@ -40,6 +40,8 @@ pub struct NotepadApp {
     pub current_language: Language,
     pub theme: EditorTheme,
     pub status_notification: Option<(String, std::time::Instant)>,
+    pub closed_docs: Vec<Document>,
+    pub show_function_list: bool,
 }
 
 impl NotepadApp {
@@ -99,6 +101,8 @@ impl NotepadApp {
             current_language: initial_lang,
             theme: EditorTheme::DarkMode,
             status_notification: None,
+            closed_docs: Vec::new(),
+            show_function_list: false,
         }
     }
 
@@ -205,7 +209,27 @@ impl NotepadApp {
         self.set_notification(format!("Saved {count} documents"));
     }
 
+    pub fn restore_closed_document(&mut self) {
+        if let Some(doc) = self.closed_docs.pop() {
+            let title = doc.title.clone();
+            self.docs.push(doc);
+            self.active_index = self.docs.len() - 1;
+            self.set_notification(format!("Restored tab '{title}'"));
+        } else {
+            self.set_notification("No recently closed tabs to restore");
+        }
+    }
+
     pub fn close_current(&mut self) {
+        if let Some(doc) = self.docs.get(self.active_index) {
+            if doc.path.is_some() || !doc.content.is_empty() {
+                if self.closed_docs.len() >= 25 {
+                    self.closed_docs.remove(0);
+                }
+                self.closed_docs.push(doc.clone());
+            }
+        }
+
         if self.docs.len() <= 1 {
             // Keep at least one empty document
             self.docs[0] = Document::new_empty(Some("new 1"));
@@ -364,6 +388,14 @@ impl NotepadApp {
                 if let Some(doc) = self.active_doc_mut() {
                     doc.undo();
                 }
+            } else if input.key_pressed(egui::Key::T) {
+                if input.modifiers.shift {
+                    self.restore_closed_document();
+                }
+            } else if input.key_pressed(egui::Key::L) {
+                if input.modifiers.alt {
+                    self.show_function_list = !self.show_function_list;
+                }
             } else if input.key_pressed(egui::Key::Y) {
                 if let Some(doc) = self.active_doc_mut() {
                     doc.redo();
@@ -427,6 +459,10 @@ impl eframe::App for NotepadApp {
                     }
                     if ui.button("Close All BUT Current").clicked() {
                         self.close_all_except_current();
+                        ui.close();
+                    }
+                    if ui.button("Restore Closed Tab\tCtrl+Shift+T").clicked() {
+                        self.restore_closed_document();
                         ui.close();
                     }
                     ui.separator();
@@ -675,6 +711,7 @@ impl eframe::App for NotepadApp {
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.word_wrap, "Word Wrap");
                     ui.checkbox(&mut self.show_line_numbers, "Line Numbers");
+                    ui.checkbox(&mut self.show_function_list, "Function List (Ctrl+Alt+L)");
                     ui.checkbox(&mut self.document_map, "Document Map (Minimap)");
                     ui.separator();
                     if ui.button("Zoom In (Ctrl+Num+)").clicked() {
@@ -921,6 +958,9 @@ impl eframe::App for NotepadApp {
                 if ui.selectable_label(self.word_wrap, "↩ Wrap").clicked() {
                     self.word_wrap = !self.word_wrap;
                 }
+                if ui.selectable_label(self.show_function_list, "📋 Symbols").on_hover_text("Function List Outline (Ctrl+Alt+L)").clicked() {
+                    self.show_function_list = !self.show_function_list;
+                }
                 if ui.button("📊 Summary").on_hover_text("Document Properties").clicked() {
                     self.show_summary();
                 }
@@ -950,6 +990,15 @@ impl eframe::App for NotepadApp {
                             }
 
                             if let Some(idx) = to_close {
+                                if let Some(doc) = self.docs.get(idx) {
+                                    if doc.path.is_some() || !doc.content.is_empty() {
+                                        if self.closed_docs.len() >= 25 {
+                                            self.closed_docs.remove(0);
+                                        }
+                                        self.closed_docs.push(doc.clone());
+                                    }
+                                }
+
                                 if self.docs.len() > 1 {
                                     self.docs.remove(idx);
                                     if self.active_index >= self.docs.len() {
@@ -997,6 +1046,46 @@ impl eframe::App for NotepadApp {
                 }
             });
         });
+
+        // 4b. Function List Sidebar
+        if self.show_function_list {
+            egui::SidePanel::right("function_list_sidebar")
+                .default_width(220.0)
+                .min_width(150.0)
+                .max_width(400.0)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("Function List");
+                        ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("×").clicked() {
+                                self.show_function_list = false;
+                            }
+                        });
+                    });
+                    ui.separator();
+
+                    let active_idx = self.active_index;
+                    if let Some(doc) = self.docs.get(active_idx) {
+                        let symbols = crate::syntax::extract_symbols(&doc.content, self.current_language);
+                        ui.label(format!("Symbols: {}", symbols.len()));
+                        ui.separator();
+
+                        ScrollArea::vertical()
+                            .id_salt("function_list_scroll")
+                            .show(ui, |ui| {
+                                for sym in symbols {
+                                    let label = format!("{} {}", sym.kind.icon(), sym.name);
+                                    if ui.button(label).on_hover_text(format!("Line {}", sym.line)).clicked() {
+                                        if let Some(doc_mut) = self.docs.get_mut(active_idx) {
+                                            doc_mut.cursor_line = sym.line;
+                                            doc_mut.cursor_col = 1;
+                                        }
+                                    }
+                                }
+                            });
+                    }
+                });
+        }
 
         // 5. Central Panel (Editor Canvas)
         egui::CentralPanel::default().show(ctx, |ui| {

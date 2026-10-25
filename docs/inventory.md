@@ -196,3 +196,13 @@ Using **REA** (`morluto/rea` v6.8.0) and **Universal Asset Ripper** PE recon ove
   * Comment / Uncomment with active language prefix
   * MIME / Converter: Base64 and URL encode/decode
 
+### D. Function List Symbol Outline (`functionList/*.xml`)
+- Recovered outline extraction patterns for functions, methods, classes, and structs across languages.
+- Implemented `syntax::symbols::extract_symbols` and interactive `Function List` sidebar (`Ctrl+Alt+L` / `View -> Function List`).
+- Clicking symbols instantly scrolls to and positions the cursor at the target line.
+
+### E. Tab History & Session Restoration
+- Implemented `closed_docs` tab history stack with `Ctrl+Shift+T` (`File -> Restore Closed Tab`).
+- Capped at 25 recently closed tabs with content and path preserved.
+
+

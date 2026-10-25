@@ -3,6 +3,9 @@
 
 use std::path::Path;
 
+pub mod symbols;
+pub use symbols::{extract_symbols, DocumentSymbol, SymbolKind};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Language {
     #[default]
