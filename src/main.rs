@@ -1,4 +1,5 @@
 //! rust-note — Modern, high-performance clean-room code and text editor in Rust.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 #![allow(clippy::collapsible_if)]
 
 pub mod app;
