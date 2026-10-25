@@ -13,6 +13,13 @@ use crate::ui::dialogs::{
 };
 use eframe::egui::{self, Color32, Context, FontId, Layout, RichText, ScrollArea};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EditorTheme {
+    #[default]
+    DarkMode,
+    ClassicLight,
+}
+
 pub struct NotepadApp {
     pub docs: Vec<Document>,
     pub active_index: usize,
@@ -31,6 +38,7 @@ pub struct NotepadApp {
     pub show_symbols: bool,
     pub document_map: bool,
     pub current_language: Language,
+    pub theme: EditorTheme,
     pub status_notification: Option<(String, std::time::Instant)>,
 }
 
@@ -89,7 +97,25 @@ impl NotepadApp {
             show_symbols: false,
             document_map: false,
             current_language: initial_lang,
+            theme: EditorTheme::DarkMode,
             status_notification: None,
+        }
+    }
+
+    pub fn apply_theme(&self, ctx: &Context) {
+        match self.theme {
+            EditorTheme::DarkMode => {
+                let mut visuals = egui::Visuals::dark();
+                visuals.panel_fill = Color32::from_rgb(32, 32, 32);
+                visuals.window_fill = Color32::from_rgb(45, 45, 45);
+                ctx.set_visuals(visuals);
+            }
+            EditorTheme::ClassicLight => {
+                let mut visuals = egui::Visuals::light();
+                visuals.panel_fill = Color32::from_rgb(240, 240, 240);
+                visuals.window_fill = Color32::from_rgb(255, 255, 255);
+                ctx.set_visuals(visuals);
+            }
         }
     }
 
@@ -663,6 +689,21 @@ impl eframe::App for NotepadApp {
                         self.font_size = 14.0;
                         ui.close();
                     }
+                    ui.separator();
+                    ui.menu_button("Theme", |ui| {
+                        if ui.selectable_label(self.theme == EditorTheme::DarkMode, "Notepad++ Dark Mode").clicked() {
+                            self.theme = EditorTheme::DarkMode;
+                            self.apply_theme(ctx);
+                            self.set_notification("Theme: Notepad++ Dark Mode");
+                            ui.close();
+                        }
+                        if ui.selectable_label(self.theme == EditorTheme::ClassicLight, "Notepad++ Classic Light").clicked() {
+                            self.theme = EditorTheme::ClassicLight;
+                            self.apply_theme(ctx);
+                            self.set_notification("Theme: Notepad++ Classic Light");
+                            ui.close();
+                        }
+                    });
                 });
 
                 // --- ENCODING ---
@@ -706,25 +747,48 @@ impl eframe::App for NotepadApp {
                         Language::Rust,
                         Language::C,
                         Language::Cpp,
+                        Language::Cs,
+                        Language::Java,
                         Language::Python,
                         Language::JavaScript,
                         Language::TypeScript,
+                        Language::Go,
                         Language::Html,
+                        Language::Css,
                         Language::Xml,
                         Language::Json,
+                        Language::Yaml,
+                        Language::Toml,
                         Language::Sql,
                         Language::Shell,
+                        Language::PowerShell,
+                        Language::Batch,
+                        Language::Php,
+                        Language::Ruby,
+                        Language::Perl,
+                        Language::Lua,
+                        Language::Swift,
+                        Language::Kotlin,
+                        Language::Dart,
+                        Language::R,
+                        Language::GdScript,
                         Language::Markdown,
+                        Language::Assembly,
+                        Language::Ini,
+                        Language::Diff,
+                        Language::Makefile,
                     ];
-                    for l in langs {
-                        if ui.selectable_label(self.current_language == l, l.name()).clicked() {
-                            self.current_language = l;
-                            if let Some(doc) = self.active_doc_mut() {
-                                doc.language = Some(l);
+                    ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
+                        for l in langs {
+                            if ui.selectable_label(self.current_language == l, l.name()).clicked() {
+                                self.current_language = l;
+                                if let Some(doc) = self.active_doc_mut() {
+                                    doc.language = Some(l);
+                                }
+                                ui.close();
                             }
-                            ui.close();
                         }
-                    }
+                    });
                 });
 
                 // --- PLUGINS & TOOLS ---
@@ -984,6 +1048,101 @@ impl eframe::App for NotepadApp {
                         if response.changed() {
                             doc.is_dirty = true;
                         }
+
+                        let comment_prefix = doc.language.unwrap_or(self.current_language).comment_prefix();
+                        response.context_menu(|ui| {
+                            ui.label(RichText::new("Notepad++ Context Menu").strong());
+                            ui.separator();
+                            if ui.button("Undo\tCtrl+Z").clicked() {
+                                doc.undo();
+                                ui.close();
+                            }
+                            if ui.button("Redo\tCtrl+Y").clicked() {
+                                doc.redo();
+                                ui.close();
+                            }
+                            ui.separator();
+                            ui.menu_button("Line Operations", |ui| {
+                                if ui.button("Duplicate Current Line\tCtrl+D").clicked() {
+                                    let cur = doc.cursor_line;
+                                    let dup = operations::duplicate_line(&doc.content, cur);
+                                    doc.set_content(dup);
+                                    ui.close();
+                                }
+                                if ui.button("Move Line Up").clicked() {
+                                    let cur = doc.cursor_line;
+                                    let moved = operations::move_line_up(&doc.content, cur);
+                                    doc.set_content(moved);
+                                    doc.cursor_line = doc.cursor_line.saturating_sub(1).max(1);
+                                    ui.close();
+                                }
+                                if ui.button("Move Line Down").clicked() {
+                                    let cur = doc.cursor_line;
+                                    let moved = operations::move_line_down(&doc.content, cur);
+                                    doc.set_content(moved);
+                                    doc.cursor_line += 1;
+                                    ui.close();
+                                }
+                                if ui.button("Remove Duplicate Lines").clicked() {
+                                    let dedup = operations::remove_duplicate_lines(&doc.content, false);
+                                    doc.set_content(dedup);
+                                    ui.close();
+                                }
+                                if ui.button("Sort Lines Ascending").clicked() {
+                                    let sorted = operations::sort_lines(&doc.content, true, true, false);
+                                    doc.set_content(sorted);
+                                    ui.close();
+                                }
+                            });
+                            ui.menu_button("Convert Case", |ui| {
+                                if ui.button("UPPERCASE\tCtrl+Shift+U").clicked() {
+                                    let c = operations::convert_case(&doc.content, CaseMode::Uppercase);
+                                    doc.set_content(c);
+                                    ui.close();
+                                }
+                                if ui.button("lowercase\tCtrl+U").clicked() {
+                                    let c = operations::convert_case(&doc.content, CaseMode::Lowercase);
+                                    doc.set_content(c);
+                                    ui.close();
+                                }
+                                if ui.button("Proper Case").clicked() {
+                                    let c = operations::convert_case(&doc.content, CaseMode::ProperCase);
+                                    doc.set_content(c);
+                                    ui.close();
+                                }
+                            });
+                            ui.separator();
+                            if ui.button(format!("Toggle Comment ({comment_prefix})")).clicked() {
+                                let c = operations::toggle_comment(&doc.content, comment_prefix);
+                                doc.set_content(c);
+                                ui.close();
+                            }
+                            ui.separator();
+                            ui.menu_button("MIME / Tools", |ui| {
+                                if ui.button("Base64 Encode").clicked() {
+                                    let enc = plugins::base64_encode(&doc.content);
+                                    doc.set_content(enc);
+                                    ui.close();
+                                }
+                                if ui.button("Base64 Decode").clicked() {
+                                    if let Ok(dec) = plugins::base64_decode(&doc.content) {
+                                        doc.set_content(dec);
+                                    }
+                                    ui.close();
+                                }
+                                if ui.button("URL Encode").clicked() {
+                                    let enc = plugins::url_encode(&doc.content);
+                                    doc.set_content(enc);
+                                    ui.close();
+                                }
+                                if ui.button("URL Decode").clicked() {
+                                    if let Ok(dec) = plugins::url_decode(&doc.content) {
+                                        doc.set_content(dec);
+                                    }
+                                    ui.close();
+                                }
+                            });
+                        });
                     });
             });
         });

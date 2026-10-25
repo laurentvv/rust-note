@@ -1,4 +1,5 @@
 //! Notepad++ clean-room reimplementation in Rust.
+#![allow(clippy::collapsible_if)]
 
 pub mod app;
 pub mod buffer;

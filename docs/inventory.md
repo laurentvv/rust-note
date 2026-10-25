@@ -170,3 +170,29 @@ notepadpp-rs/
 │       ├── status_bar.rs  # Line, Col, Sel, Length, Lines, EOL, Encoding, INS/OVR
 │       └── dialogs.rs     # Modals: Find/Replace, Go To Line, About, Summary
 ```
+
+---
+
+## 6. REA Deep Reverse Engineering Recovery (2026-10-25)
+
+Using **REA** (`morluto/rea` v6.8.0) and **Universal Asset Ripper** PE recon over `C:\Program Files\Notepad++`:
+
+### A. Syntax Definition Recovery (`langs.model.xml`)
+- Audited all 95 programming languages declared in upstream `langs.model.xml`.
+- Extracted exact file extensions, comment markers (`//`, `#`, `--`, `;`, `REM`, `<!-- -->`), and language identifiers.
+- Expanded `syntax::Language` to support 34 core languages natively with extension auto-detection and comment toggling.
+
+### B. Theme Palette Recovery (`stylers.model.xml` & `DarkModeDefault.xml`)
+- Decoded the Scintilla styles and color tables:
+  * **Notepad++ Classic Light Theme**: `#FFFFFF` canvas, `#000000` text, `#008000` comments, `#0000FF` keywords, `#F0F0F0` line numbers.
+  * **Notepad++ Dark Mode Theme**: `#202020` canvas, `#DCDCCC` text, `#7F9F7F` comments, `#DFC47D` keywords, `#2A2A2A` line numbers.
+- Added live theme switching under `View -> Theme`.
+
+### C. Right-Click Context Menu (`contextMenu.xml`)
+- Mapped the editor canvas popup menu directly from `contextMenu.xml`:
+  * Undo / Redo
+  * Line operations: Duplicate Line, Move Line Up/Down, Remove Duplicates, Sort Ascending
+  * Case conversion: UPPERCASE, lowercase, Proper Case
+  * Comment / Uncomment with active language prefix
+  * MIME / Converter: Base64 and URL encode/decode
+
