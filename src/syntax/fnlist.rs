@@ -213,6 +213,9 @@ fn pcre(pattern: &str) -> String {
         if in_class {
             if c == ']' {
                 in_class = false;
+            } else if c == '[' && !rest[1..].starts_with(':') {
+                // PCRE treats `[` inside a class as a literal
+                out.push('\\');
             }
         } else if c == '[' {
             in_class = true;
@@ -231,12 +234,129 @@ fn pcre(pattern: &str) -> String {
     out
 }
 
+
+/// Index of the `)` matching the `(` at `open`, skipping escapes, character classes and
+/// (in free-spacing mode) `#` comments.
+fn matching_paren(p: &[char], open: usize, free: bool) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut i = open;
+    let mut in_class = false;
+    while i < p.len() {
+        match p[i] {
+            '\\' => i += 1,
+            '[' if !in_class => in_class = true,
+            ']' if in_class => in_class = false,
+            '#' if free && !in_class => {
+                while i < p.len() && p[i] != '\n' {
+                    i += 1;
+                }
+            }
+            '(' if !in_class => depth += 1,
+            ')' if !in_class => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Emulates PCRE subroutine calls (`(?&NAME)`) by inlining the body of the named group at every
+/// call site (the Rust regex engines have no recursion support). Works for groups declared in a
+/// `(?(DEFINE)...)` block and for ordinary named groups of the same pattern.
+fn expand_subroutines(pattern: &str) -> String {
+    if !pattern.contains("(?&") {
+        return pattern.to_string();
+    }
+    let chars: Vec<char> = pattern.chars().collect();
+    let free = pattern.trim_start().starts_with("(?x");
+
+    // 1. Collect every named group (name, body)
+    let mut defs: Vec<(String, String)> = Vec::new();
+    let (mut i, mut in_class) = (0usize, false);
+    while i < chars.len() {
+        match chars[i] {
+            '\\' => i += 1,
+            '[' if !in_class => in_class = true,
+            ']' if in_class => in_class = false,
+            '#' if free && !in_class => {
+                while i < chars.len() && chars[i] != '\n' {
+                    i += 1;
+                }
+            }
+            '(' if !in_class && chars.get(i + 1) == Some(&'?') => {
+                let (open_len, closer) = match (chars.get(i + 2), chars.get(i + 3)) {
+                    (Some('\''), _) => (3, '\''),
+                    (Some('<'), Some(c)) if *c != '=' && *c != '!' => (3, '>'),
+                    (Some('P'), Some('<')) => (4, '>'),
+                    _ => (0, ' '),
+                };
+                if open_len > 0 {
+                    let ns = i + open_len;
+                    if let Some(rel) = chars[ns..].iter().position(|c| *c == closer) {
+                        let name: String = chars[ns..ns + rel].iter().collect();
+                        if let Some(close) = matching_paren(&chars, i, free) {
+                            let body: String = chars[ns + rel + 1..close].iter().collect();
+                            defs.push((name, body));
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    // 2. Drop (?(DEFINE)...) blocks
+    let marker: Vec<char> = "(?(DEFINE)".chars().collect();
+    let mut text: Vec<char> = chars;
+    while let Some(start) = text.windows(marker.len()).position(|w| w == marker.as_slice()) {
+        let Some(end) = matching_paren(&text, start, free) else { break };
+        text.drain(start..=end);
+    }
+    let mut out: String = text.into_iter().collect();
+
+    // 3. Inline the calls (copies must not re-declare the group names)
+    let strip_names = |body: &str| -> String {
+        let mut b = body.to_string();
+        for (n, _) in &defs {
+            b = b
+                .replace(&format!("(?'{n}'"), "(?:")
+                .replace(&format!("(?<{n}>"), "(?:")
+                .replace(&format!("(?P<{n}>"), "(?:");
+        }
+        b
+    };
+    for _ in 0..6 {
+        let mut changed = false;
+        for (name, body) in &defs {
+            let call = format!("(?&{name})");
+            if out.contains(&call) {
+                out = out.replace(&call, &format!("(?:{}\n)", strip_names(body)));
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    out
+}
+
 fn compile(p: &str) -> Option<Regex> {
-    match Regex::new(&format!("(?m){}", pcre(p))) {
+    match Regex::new(&format!("(?m){}", pcre(&expand_subroutines(p)))) {
         Ok(r) => Some(r),
         Err(e) => {
             if std::env::var_os("RUST_NOTE_DEBUG_FNLIST").is_some() {
-                eprintln!("fnlist: {e}");
+                let full = pcre(&expand_subroutines(p));
+                let pos: usize = e.to_string().split("position ").nth(1).and_then(|r| r.split(':').next()).and_then(|n| n.trim().parse().ok()).unwrap_or(0);
+                let from = pos.saturating_sub(40).min(full.len());
+                let ctx: String = full.chars().skip(from).take(80).collect();
+                eprintln!("fnlist: {e} near [{}]", ctx.replace('\n', " "));
             }
             None
         }
