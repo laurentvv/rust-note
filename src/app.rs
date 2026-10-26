@@ -1512,6 +1512,9 @@ impl eframe::App for RustNoteApp {
                         Language::Makefile,
                         Language::Nim,
                     ];
+                    // A solid (non floating) scrollbar reserves its own space instead of covering long names
+                    ui.style_mut().spacing.scroll = egui::style::ScrollStyle::solid();
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                     ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
                         for l in langs {
                             if ui.selectable_label(self.current_language == l, l.name()).clicked() {
