@@ -139,29 +139,41 @@ impl Language {
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
+        // Dotfiles such as ".bashrc" have no extension: use the name itself
+        let ext = if ext.is_empty() {
+            path.as_ref()
+                .file_name()
+                .and_then(|n| n.to_str())
+                .filter(|n| n.starts_with('.'))
+                .map(|n| n.trim_start_matches('.').to_lowercase())
+                .unwrap_or_default()
+        } else {
+            ext
+        };
 
         match ext.as_str() {
             "rs" => Self::Rust,
             "c" | "h" | "lex" => Self::C,
             "cpp" | "cxx" | "cc" | "hpp" | "hxx" | "hh" | "ino" => Self::Cpp,
             "cs" => Self::Cs,
+            "mm" => Self::Cpp,
             "java" => Self::Java,
-            "py" | "pyw" => Self::Python,
-            "js" | "jsx" | "mjs" | "cjs" => Self::JavaScript,
+            "py" | "pyw" | "pyx" | "pxd" | "pxi" | "pyi" => Self::Python,
+            "js" | "jsx" | "jsm" | "mjs" | "cjs" | "vue" => Self::JavaScript,
             "ts" | "tsx" | "mts" | "cts" => Self::TypeScript,
             "go" => Self::Go,
-            "html" | "htm" | "xhtml" | "shtml" | "jsp" => Self::Html,
+            "html" | "htm" | "xhtml" | "xht" | "shtml" | "shtm" | "hta" | "jsp" | "asp" | "aspx" => Self::Html,
             "css" => Self::Css,
-            "xml" | "svg" | "xaml" | "res" | "xsl" | "xslt" | "xsd" | "csproj" | "vcxproj" | "props" | "targets" | "plist" | "config" => Self::Xml,
-            "json" | "json5" => Self::Json,
+            "xml" | "svg" | "xaml" | "res" | "xsl" | "xslt" | "xsd" | "xul" | "kml" | "mxml" | "wsdl" | "xlf" | "xliff" | "sitemap" | "gml" | "gpx" | "slnx" | "vcproj" | "csxproj" | "vbproj" | "wxs" | "csproj" | "vcxproj" | "props" | "targets" | "plist" | "config" => Self::Xml,
+            "json" | "json5" | "jsonc" => Self::Json,
             "yaml" | "yml" => Self::Yaml,
             "toml" => Self::Toml,
             "sql" => Self::Sql,
-            "sh" | "bash" | "zsh" | "bsh" => Self::Shell,
+            "sh" | "bash" | "zsh" | "bsh" | "csh" | "ksh" | "bash_profile" | "bashrc" | "profile" => Self::Shell,
             "ps1" | "psm1" | "psd1" => Self::PowerShell,
             "bat" | "cmd" | "nt" => Self::Batch,
-            "php" | "phtml" | "php3" | "php4" | "php5" => Self::Php,
-            "rb" | "rbw" => Self::Ruby,
+            "php" | "phtml" | "php3" | "php4" | "php5" | "phps" | "phpt" => Self::Php,
+            "rb" | "rbw" | "rake" | "gemspec" => Self::Ruby,
             "pl" | "pm" | "pod" => Self::Perl,
             "lua" => Self::Lua,
             "swift" => Self::Swift,
@@ -171,7 +183,7 @@ impl Language {
             "gd" => Self::GdScript,
             "md" | "markdown" => Self::Markdown,
             "asm" | "s" => Self::Assembly,
-            "ini" | "cfg" | "conf" | "properties" => Self::Ini,
+            "ini" | "inf" | "url" | "cfg" | "conf" | "cf" | "properties" | "gitconfig" | "gitattributes" | "gitmodules" | "editorconfig" => Self::Ini,
             "diff" | "patch" => Self::Diff,
             "mk" | "mak" => Self::Makefile,
             _ => {
@@ -290,6 +302,80 @@ impl Language {
                 "RIGHT", "INNER", "OUTER", "ON", "GROUP", "BY", "ORDER", "HAVING", "LIMIT",
                 "OFFSET", "CREATE", "TABLE", "DROP", "ALTER", "PRIMARY", "KEY", "FOREIGN",
             ],
+            Self::Shell => &[
+                "if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac",
+                "function", "in", "select", "return", "exit", "export", "local", "readonly", "shift",
+                "source", "alias", "unset", "set", "echo", "cd", "eval", "exec", "trap", "true", "false",
+            ],
+            Self::PowerShell => &[
+                "begin", "break", "catch", "class", "continue", "data", "do", "dynamicparam", "else",
+                "elseif", "end", "exit", "filter", "finally", "for", "foreach", "from", "function", "if",
+                "in", "param", "process", "return", "switch", "throw", "trap", "try", "until", "using",
+                "var", "while", "workflow", "$true", "$false", "$null",
+            ],
+            Self::Batch => &[
+                "echo", "set", "if", "else", "goto", "call", "for", "in", "do", "exit", "pause", "rem",
+                "setlocal", "endlocal", "exist", "not", "errorlevel", "shift", "cd", "copy", "del", "start",
+            ],
+            Self::Php => &[
+                "abstract", "and", "array", "as", "break", "case", "catch", "class", "clone", "const",
+                "continue", "declare", "default", "do", "echo", "else", "elseif", "empty", "enddeclare",
+                "extends", "final", "finally", "fn", "for", "foreach", "function", "global", "if",
+                "implements", "include", "instanceof", "interface", "isset", "namespace", "new", "or",
+                "print", "private", "protected", "public", "require", "return", "static", "switch",
+                "throw", "trait", "try", "use", "var", "while", "yield", "true", "false", "null",
+            ],
+            Self::Ruby => &[
+                "alias", "and", "begin", "break", "case", "class", "def", "defined?", "do", "else",
+                "elsif", "end", "ensure", "false", "for", "if", "in", "module", "next", "nil", "not",
+                "or", "redo", "rescue", "retry", "return", "self", "super", "then", "true", "undef",
+                "unless", "until", "when", "while", "yield", "require", "attr_accessor",
+            ],
+            Self::Perl => &[
+                "my", "our", "local", "sub", "package", "use", "require", "if", "elsif", "else", "unless",
+                "while", "until", "for", "foreach", "last", "next", "redo", "return", "print", "die",
+                "eval", "defined", "undef", "ref", "bless", "qw", "and", "or", "not",
+            ],
+            Self::Lua => &[
+                "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if",
+                "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+            ],
+            Self::Swift => &[
+                "as", "break", "case", "catch", "class", "continue", "default", "defer", "do", "else",
+                "enum", "extension", "false", "for", "func", "guard", "if", "import", "in", "init",
+                "inout", "internal", "is", "let", "nil", "private", "protocol", "public", "return",
+                "self", "static", "struct", "subscript", "super", "switch", "throw", "throws", "true",
+                "try", "typealias", "var", "where", "while", "async", "await",
+            ],
+            Self::Kotlin => &[
+                "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in",
+                "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
+                "true", "try", "typealias", "val", "var", "when", "while", "override", "open", "data",
+                "sealed", "suspend", "import", "private", "public", "internal", "companion",
+            ],
+            Self::Dart => &[
+                "abstract", "as", "assert", "async", "await", "break", "case", "catch", "class", "const",
+                "continue", "default", "do", "else", "enum", "extends", "false", "final", "finally",
+                "for", "if", "implements", "import", "in", "is", "late", "new", "null", "return",
+                "static", "super", "switch", "this", "throw", "true", "try", "var", "void", "while",
+            ],
+            Self::R => &[
+                "if", "else", "repeat", "while", "function", "for", "next", "break", "TRUE", "FALSE",
+                "NULL", "Inf", "NaN", "NA", "in", "library", "return",
+            ],
+            Self::GdScript => &[
+                "and", "as", "assert", "await", "break", "class", "class_name", "const", "continue",
+                "elif", "else", "enum", "extends", "for", "func", "if", "in", "is", "match", "not",
+                "null", "or", "pass", "return", "self", "signal", "static", "super", "true", "false",
+                "var", "while", "yield", "export", "onready", "tool",
+            ],
+            Self::Json | Self::Yaml | Self::Toml => &["true", "false", "null", "yes", "no"],
+            Self::Css => &[
+                "important", "inherit", "initial", "none", "auto", "block", "inline", "flex", "grid",
+                "absolute", "relative", "fixed", "solid", "transparent", "hidden", "bold", "normal",
+            ],
+            Self::Html | Self::Xml => &[],
+            Self::Makefile => &["ifeq", "ifneq", "ifdef", "ifndef", "else", "endif", "include", "define", "endef", "export"],
             _ => &[],
         }
     }
@@ -313,6 +399,15 @@ mod tests {
         assert_eq!(Language::from_path("player.gd"), Language::GdScript);
         assert_eq!(Language::from_path("Makefile"), Language::Makefile);
         assert_eq!(Language::from_path("notes.txt"), Language::PlainText);
+    }
+
+    #[test]
+    fn test_extra_extensions() {
+        assert_eq!(Language::from_path("a.vue"), Language::JavaScript);
+        assert_eq!(Language::from_path("a.csproj"), Language::Xml);
+        assert_eq!(Language::from_path(".bashrc"), Language::Shell);
+        assert_eq!(Language::from_path("x.gitconfig"), Language::Ini);
+        assert!(!Language::Lua.keywords().is_empty());
     }
 
     #[test]

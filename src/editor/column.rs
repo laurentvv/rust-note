@@ -79,17 +79,51 @@ pub fn extract(content: &str, sel: &ColumnSel) -> String {
 /// Returns the new content and the collapsed selection after the inserted text.
 #[must_use]
 pub fn insert(content: &str, sel: &ColumnSel, text: &str) -> (String, ColumnSel) {
+    insert_each(content, sel, &[text])
+}
+
+/// Like [`insert`], but line `i` of the block receives `texts[i]` (or the single text for all
+/// lines when only one is given). Used to paste multi-line clipboard text into a block.
+#[must_use]
+pub fn insert_each(content: &str, sel: &ColumnSel, texts: &[&str]) -> (String, ColumnSel) {
     let (l1, l2, c1, c2) = sel.bounds();
-    let ins: Vec<char> = text.chars().filter(|c| *c != '\n' && *c != '\r').collect();
+    let pieces: Vec<Vec<char>> = texts
+        .iter()
+        .map(|t| t.chars().filter(|c| *c != '\n' && *c != '\r').collect())
+        .collect();
+    let mut line_no = l1;
     let out = map_lines(content, sel, |chars| {
+        let rel = line_no - l1;
+        let ins: &[char] = if pieces.len() == 1 {
+            &pieces[0]
+        } else {
+            pieces.get(rel).map_or(&[][..], Vec::as_slice)
+        };
         if chars.len() < c1 {
             chars.resize(c1, ' ');
         }
         let end = c2.min(chars.len());
         chars.splice(c1..end, ins.iter().copied());
+        line_no += 1;
     });
-    let col = c1 + ins.len();
-    (out, ColumnSel { anchor: (l1, col), head: (l2, col) })
+    let width = pieces.iter().map(Vec::len).max().unwrap_or(0);
+    (out, ColumnSel { anchor: (l1, c1 + width), head: (l2, c1 + width) })
+}
+
+
+/// Char index of the selection head (last dragged position), clamped to its line.
+#[must_use]
+pub fn head_char_index(content: &str, sel: &ColumnSel) -> usize {
+    let (line, col) = sel.head;
+    let mut idx = 0;
+    for (i, l) in content.split('\n').enumerate() {
+        let len = l.strip_suffix('\r').unwrap_or(l).chars().count();
+        if i == line {
+            return idx + col.min(len);
+        }
+        idx += l.chars().count() + 1;
+    }
+    idx.saturating_sub(1)
 }
 
 /// Backspace (`forward == false`) or Delete (`forward == true`).
@@ -143,6 +177,12 @@ mod tests {
         assert_eq!(out, "aX\nbX\ncX");
         let (out, _) = delete(&out, &s, false);
         assert_eq!(out, "a\nb\nc");
+    }
+
+    #[test]
+    fn paste_distributes_lines() {
+        let (out, _) = insert_each("aa\nbb\ncc", &sel(0, 1, 2, 1), &["X", "Y"]);
+        assert_eq!(out, "aXa\nbYb\ncc");
     }
 
     #[test]

@@ -1855,12 +1855,18 @@ impl eframe::App for RustNoteApp {
                     if let (Some(sel), true) = (doc.column_sel, ui.ctx().memory(|m| m.has_focus(editor_id))) {
                         let mut sel = sel;
                         let mut keep_sel = true;
+                        let stamp_before = doc.last_edit;
                         let events = ui.ctx().input_mut(|i| std::mem::take(&mut i.events));
                         let mut kept = Vec::with_capacity(events.len());
                         for ev in events {
                             match &ev {
                                 egui::Event::Text(t) | egui::Event::Paste(t) if !doc.is_readonly => {
-                                    let (c, s) = crate::editor::column::insert(&doc.content, &sel, t);
+                                    let lines: Vec<&str> = t.lines().collect();
+                                    let (c, s) = if matches!(&ev, egui::Event::Paste(_)) && lines.len() > 1 {
+                                        crate::editor::column::insert_each(&doc.content, &sel, &lines)
+                                    } else {
+                                        crate::editor::column::insert(&doc.content, &sel, t)
+                                    };
                                     doc.content = c;
                                     sel = s;
                                     doc.record_typing();
@@ -1909,6 +1915,13 @@ impl eframe::App for RustNoteApp {
                         }
                         ui.ctx().input_mut(|i| i.events = kept);
                         doc.column_sel = if keep_sel { Some(sel) } else { None };
+                        if keep_sel && doc.last_edit != stamp_before {
+                            // Keep the text caret at the block head after an edit
+                            let pos = crate::editor::column::head_char_index(&doc.content, &sel);
+                            let mut st = egui::text_edit::TextEditState::load(ui.ctx(), editor_id).unwrap_or_default();
+                            st.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(pos))));
+                            st.store(ui.ctx(), editor_id);
+                        }
                         if !keep_sel {
                             doc.column_dragging = false;
                         }
