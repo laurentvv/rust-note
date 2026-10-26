@@ -41,10 +41,20 @@ pub fn tr(s: &str) -> String {
     if lang() == UiLang::English {
         return s.to_string();
     }
+    if s.starts_with("Jumped to '") {
+        return message(s);
+    }
     let (head, tab) = match s.split_once('\t') {
         Some((h, t)) => (h, Some(t)),
         None => (s, None),
     };
+    // Entries whose English text itself contains parentheses are looked up verbatim first
+    if let Some(t) = fr(head) {
+        return match tab {
+            Some(tab) => format!("{t}	{tab}"),
+            None => t.to_string(),
+        };
+    }
     let (head, hint) = match head.rfind(" (") {
         Some(i) if head.ends_with(')') => (&head[..i], Some(&head[i..])),
         _ => (head, None),
@@ -92,6 +102,12 @@ fn message(s: &str) -> String {
     }
     if let Some(n) = s.strip_prefix("Saved ").and_then(|r| r.strip_suffix(" documents")) {
         return format!("{n} documents enregistrés");
+    }
+    if let Some(name) = s.strip_prefix("Saved ") {
+        return format!("Enregistré : {name}");
+    }
+    if s.starts_with("Jumped to '") {
+        return s.replacen("Jumped to '", "Saut à '", 1).replace(" (line ", " (ligne ");
     }
     s.to_string()
 }
@@ -279,9 +295,14 @@ fn fr(s: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // The UI language is a process-wide setting: serialize the tests that change it
+    static LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn french_translation_keeps_icons_shortcuts_and_dots() {
+        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         set_lang(UiLang::French);
         assert_eq!(tr("Open...\tCtrl+O"), "Ouvrir...\tCtrl+O");
         assert_eq!(tr("📂 Open"), "📂 Ouvrir");
@@ -289,7 +310,44 @@ mod tests {
         assert_eq!(tr("Unknown thing"), "Unknown thing");
         assert_eq!(tr("Replaced 3 occurrences"), "3 occurrences remplacées");
         assert_eq!(tr("Saved as C:/x.txt"), "Enregistré sous C:/x.txt");
+        assert_eq!(tr("Saved main.rs"), "Enregistré : main.rs");
+        assert_eq!(tr("Jumped to 'run' (line 4)"), "Saut à 'run' (ligne 4)");
         set_lang(UiLang::English);
         assert_eq!(tr("File"), "File");
+    }
+
+    /// Every literal passed to `tr("...")` in the UI code must have a French translation
+    /// (or be language-neutral), so no static label is silently left in English.
+    #[test]
+    fn all_ui_literals_are_translated() {
+        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let sources = [include_str!("app.rs"), include_str!("ui/dialogs.rs")];
+        // Names, formats and symbols that are identical in French
+        let neutral = [
+            "?", "+", "×", "➕", "➖", "OK", "UTF-8", "UTF-8-BOM", "UTF-16 LE", "UTF-16 BE", "ANSI (Windows-1252)",
+            "Windows (CR LF)", "Unix (LF)", "Macintosh (CR)", "NppExport", "NppShell", "Col", "Sel", "    ",
+            "↩ Wrap", "PowerShell", "MD5",
+        ];
+        set_lang(UiLang::French);
+        let mut missing = Vec::new();
+        for src in sources {
+            let mut rest = src;
+            while let Some(i) = rest.find("tr(\"") {
+                rest = &rest[i + 4..];
+                let Some(end) = rest.find('"') else { break };
+                let lit = rest[..end].replace("\\t", "\t");
+                rest = &rest[end..];
+                if neutral.contains(&lit.as_str()) || lit.is_empty() {
+                    continue;
+                }
+                if tr(&lit) == lit {
+                    missing.push(lit);
+                }
+            }
+        }
+        set_lang(UiLang::English);
+        missing.sort();
+        missing.dedup();
+        assert!(missing.is_empty(), "untranslated UI strings: {missing:#?}");
     }
 }

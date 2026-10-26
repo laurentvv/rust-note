@@ -94,8 +94,8 @@ Run the test suite with `cargo test`.
 
 ## Known limitations
 
-- Column selection treats a tab as one column and measures columns on the first wrapped row.
-- Some tooltips and formatted status messages are English-only in the French UI.
+- Column selection treats a tab as one column; with word wrap on, the block applies to whole logical lines and is highlighted on their first visual row.
+- The 10 Notepad++ function-list parsers that rely on PCRE recursion (C, Java, bash, SQL, TOML...) fall back to the built-in rules.
 
 ## License
 

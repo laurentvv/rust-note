@@ -2271,7 +2271,20 @@ impl eframe::App for RustNoteApp {
                                     let rel = p - output.galley_pos;
                                     let c = output.galley.cursor_from_pos(rel);
                                     let (line, _) = doc.line_col_from_char_index(c.index);
-                                    (line - 1, (rel.x / cw).round().max(0.0) as usize)
+                                    let line_start = doc.char_index_of_line(line);
+                                    // On the first row of a line the column follows the pointer (virtual space
+                                    // allowed); on wrapped continuation rows it is the real offset in the line.
+                                    let first_row = output
+                                        .galley
+                                        .pos_from_cursor(egui::text::CCursor::new(line_start))
+                                        .max
+                                        .y;
+                                    let col = if rel.y <= first_row {
+                                        (rel.x / cw).round().max(0.0) as usize
+                                    } else {
+                                        c.index.saturating_sub(line_start)
+                                    };
+                                    (line - 1, col)
                                 };
                                 if let Some(p) = pointer {
                                     if pressed && response.rect.contains(p) {
