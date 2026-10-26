@@ -84,7 +84,7 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                         symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("class ") {
-                    if let Some(name) = extract_identifier_before(rest, ':').or_else(|| extract_identifier_before(rest, '(')) {
+                    if let Some(name) = extract_first_word(rest) {
                         symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
                     }
                 }
@@ -269,6 +269,14 @@ def main():
         assert_eq!(symbols[0].name, "DocumentParser");
         assert_eq!(symbols[1].name, "parse_file");
         assert_eq!(symbols[2].name, "main");
+    }
+
+    #[test]
+    fn test_python_class_with_bases() {
+        let syms = extract_symbols("class Alpha(Base):
+    pass
+", Language::Python);
+        assert_eq!(syms[0].name, "Alpha");
     }
 
     #[test]

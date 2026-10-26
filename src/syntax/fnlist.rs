@@ -173,26 +173,58 @@ fn tokenize(xml: &str) -> Vec<Tok> {
 fn pcre(pattern: &str) -> String {
     let mut out = String::with_capacity(pattern.len());
     let mut rest = pattern;
+    let mut in_class = false;
+    let mut prev_quant = false;
     while !rest.is_empty() {
-        if let Some(r) = rest.strip_prefix("(?'") {
-            if let Some(end) = r.find('\'') {
-                out.push_str("(?P<");
-                out.push_str(&r[..end]);
-                out.push('>');
-                rest = &r[end + 1..];
-                continue;
+        if !in_class {
+            if let Some(r) = rest.strip_prefix("(?'") {
+                if let Some(end) = r.find('\'') {
+                    out.push_str("(?P<");
+                    out.push_str(&r[..end]);
+                    out.push('>');
+                    rest = &r[end + 1..];
+                    prev_quant = false;
+                    continue;
+                }
             }
-        }
-        if let Some(r) = rest.strip_prefix("\\k'") {
-            if let Some(end) = r.find('\'') {
-                out.push_str("(?P=");
-                out.push_str(&r[..end]);
-                out.push(')');
-                rest = &r[end + 1..];
-                continue;
+            if let Some(r) = rest.strip_prefix("\\k'") {
+                if let Some(end) = r.find('\'') {
+                    out.push_str("(?P=");
+                    out.push_str(&r[..end]);
+                    out.push(')');
+                    rest = &r[end + 1..];
+                    prev_quant = false;
+                    continue;
+                }
             }
         }
         let c = rest.chars().next().unwrap_or(' ');
+        if c == '\\' {
+            // Escaped character: copy both, never a quantifier
+            let mut it = rest.chars();
+            it.next();
+            let n = it.next().unwrap_or(' ');
+            out.push('\\');
+            out.push(n);
+            rest = &rest[1 + n.len_utf8()..];
+            prev_quant = false;
+            continue;
+        }
+        if in_class {
+            if c == ']' {
+                in_class = false;
+            }
+        } else if c == '[' {
+            in_class = true;
+            prev_quant = false;
+        } else if c == '+' && prev_quant {
+            // Possessive quantifier (`*+`, `++`, `?+`, `}+`): approximate with the greedy form
+            rest = &rest[1..];
+            prev_quant = false;
+            continue;
+        } else {
+            prev_quant = matches!(c, '*' | '+' | '?' | '}');
+        }
         out.push(c);
         rest = &rest[c.len_utf8()..];
     }
@@ -200,7 +232,15 @@ fn pcre(pattern: &str) -> String {
 }
 
 fn compile(p: &str) -> Option<Regex> {
-    Regex::new(&format!("(?m){}", pcre(p))).ok()
+    match Regex::new(&format!("(?m){}", pcre(p))) {
+        Ok(r) => Some(r),
+        Err(e) => {
+            if std::env::var_os("RUST_NOTE_DEBUG_FNLIST").is_some() {
+                eprintln!("fnlist: {e}");
+            }
+            None
+        }
+    }
 }
 
 fn parse_parser(xml: &str) -> Option<Parser> {
