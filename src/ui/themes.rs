@@ -117,7 +117,7 @@ impl EditorTheme {
                 selection: rgb(220, 212, 180),
                 accent: rgb(38, 139, 210),
                 palette: Palette {
-                    text: rgb(101, 123, 131),
+                    text: rgb(88, 110, 117),
                     keyword: rgb(133, 153, 0),
                     string: rgb(42, 161, 152),
                     comment: rgb(147, 161, 161),

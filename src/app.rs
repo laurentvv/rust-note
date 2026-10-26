@@ -951,6 +951,28 @@ fn tc(light: bool, r: u8, g: u8, b: u8) -> Color32 {
     }
 }
 
+/// Translates the descriptive words of a shortcut hint ("Double-click / Triple-click"...).
+fn tr_keys(keys: &str) -> String {
+    if i18n::lang() == UiLang::English {
+        return keys.to_string();
+    }
+    keys.replace("Double-click", "Double-clic")
+        .replace("Triple-click", "Triple-clic")
+        .replace("Shift+click", "Maj+clic")
+        .replace("Wheel", "Molette")
+        .replace("type 2+ letters", "saisir 1+ lettre")
+        .replace(" or ", " ou ")
+        .replace("Up, Down", "Haut, Bas")
+        .replace("Down", "Bas")
+        .replace("Up", "Haut")
+        .replace("Left", "Gauche")
+        .replace("Right", "Droite")
+        .replace("Shift", "Maj")
+        .replace("Plus / Minus", "Plus / Moins")
+        .replace("arrows", "flèches")
+        .replace("drag", "glisser")
+}
+
 fn layout_font_id(size: f32) -> FontId {
     FontId::monospace(size)
 }
@@ -1906,7 +1928,7 @@ impl eframe::App for RustNoteApp {
                     if doc.is_readonly {
                         ui.label(RichText::new(tr("🔒 READ ONLY")).strong().color(tc(light, 243, 139, 168)));
                     } else {
-                        ui.label(RichText::new("✏ INS").strong().color(tc(light, 166, 227, 161)));
+                        ui.label(RichText::new(tr("✏ INS")).strong().color(tc(light, 166, 227, 161)));
                     }
                 }
 
@@ -2401,7 +2423,7 @@ impl eframe::App for RustNoteApp {
 
                             let comment_prefix = doc.language.unwrap_or(current_lang).comment_prefix();
                             response.context_menu(|ui| {
-                                ui.label(RichText::new("rust-note Context Menu").strong());
+                                ui.label(RichText::new(tr("rust-note Context Menu")).strong());
                                 ui.separator();
                                 if ui.button(tr("Undo\tCtrl+Z")).clicked() {
                                     doc.undo();
@@ -2576,7 +2598,7 @@ impl eframe::App for RustNoteApp {
 
         if self.show_shortcuts {
             let mut open = true;
-            egui::Window::new("Keyboard Shortcuts").open(&mut open).resizable(false).show(ctx, |ui| {
+            egui::Window::new(tr("Keyboard Shortcuts")).open(&mut open).resizable(false).show(ctx, |ui| {
                 let rows: [(&str, &str); 22] = [
                     ("New / Open / Save", "Ctrl+N / Ctrl+O / Ctrl+S"),
                     ("Save All / Save As", "Ctrl+Shift+S / Ctrl+Alt+S"),
@@ -2603,8 +2625,8 @@ impl eframe::App for RustNoteApp {
                 ];
                 egui::Grid::new("shortcut_grid").num_columns(2).spacing([24.0, 4.0]).striped(true).show(ui, |ui| {
                     for (what, keys) in rows {
-                        ui.label(what);
-                        ui.label(RichText::new(keys).monospace().strong());
+                        ui.label(tr(what));
+                        ui.label(RichText::new(tr_keys(keys)).monospace().strong());
                         ui.end_row();
                     }
                 });
@@ -2618,12 +2640,12 @@ impl eframe::App for RustNoteApp {
         // 7. 0x Quick Conversion Panel (recovered from NppConverter.dll)
         if self.conversion_panel.is_open {
             let mut is_open = true;
-            egui::Window::new("🧮 0x Quick Converter (NppConverter)")
+            egui::Window::new(tr("🧮 0x Quick Converter"))
                 .open(&mut is_open)
                 .resizable(false)
                 .default_size([380.0, 240.0])
                 .show(ctx, |ui| {
-                    ui.label(RichText::new("Bidirectional Real-Time Multi-Base Converter").strong());
+                    ui.label(RichText::new(tr("Bidirectional Real-Time Multi-Base Converter")).strong());
                     ui.separator();
                     ui.horizontal(|ui| {
                         ui.label("DEC: ");
