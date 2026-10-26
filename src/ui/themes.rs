@@ -117,7 +117,7 @@ impl EditorTheme {
                 selection: rgb(220, 212, 180),
                 accent: rgb(38, 139, 210),
                 palette: Palette {
-                    text: rgb(88, 110, 117),
+                    text: rgb(40, 62, 72),
                     keyword: rgb(133, 153, 0),
                     string: rgb(42, 161, 152),
                     comment: rgb(147, 161, 161),
@@ -156,6 +156,10 @@ impl EditorTheme {
         v.selection.stroke = egui::Stroke::new(1.0_f32, c.accent);
         v.hyperlink_color = c.accent;
         v.override_text_color = Some(c.palette.text);
+        // Menus and buttons use the widget strokes: keep them at full text contrast too
+        for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
+            w.fg_stroke.color = c.palette.text;
+        }
         v
     }
 }
