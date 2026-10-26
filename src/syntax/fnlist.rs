@@ -334,7 +334,7 @@ fn expand_subroutines(pattern: &str) -> String {
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut stack: Vec<String> = Vec::new();
     let mut cut = false;
-    out = inline_calls(&out, &defs, &strip_names, &mut cache, &mut stack, &mut cut);
+    out = inline_calls(&out, &defs, &strip_names, &mut cache, &mut stack, &mut cut, if free { "\n" } else { "" });
     out
 }
 
@@ -349,6 +349,7 @@ fn inline_calls(
     cache: &mut HashMap<String, String>,
     stack: &mut Vec<String>,
     cut: &mut bool,
+    nl: &str,
 ) -> String {
     const MAX_UNROLL: usize = 2;
     let mut out = String::with_capacity(text.len());
@@ -370,7 +371,7 @@ fn inline_calls(
         } else if let Some((_, body)) = defs.iter().find(|(n, _)| n == name) {
             stack.push(name.to_string());
             let mut inner_cut = false;
-            let e = inline_calls(&strip_names(body), defs, strip_names, cache, stack, &mut inner_cut);
+            let e = inline_calls(&strip_names(body), defs, strip_names, cache, stack, &mut inner_cut, nl);
             stack.pop();
             if inner_cut {
                 *cut = true;
@@ -385,7 +386,8 @@ fn inline_calls(
             Some(e) => {
                 out.push_str("(?:");
                 out.push_str(&e);
-                out.push_str("\n)");
+                out.push_str(nl);
+                out.push(')');
             }
             None => out.push_str(&rest[i..i + 3 + end + 1]),
         }
@@ -395,12 +397,143 @@ fn inline_calls(
     out
 }
 
+/// Splits `inner` at its top-level `|` characters (outside groups, classes, escapes and comments).
+fn split_alternatives(inner: &[char], free: bool) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut cur = String::new();
+    let (mut depth, mut in_class, mut i) = (0usize, false, 0usize);
+    while i < inner.len() {
+        let c = inner[i];
+        match c {
+            '\\' => {
+                cur.push(c);
+                i += 1;
+                if i < inner.len() {
+                    cur.push(inner[i]);
+                }
+            }
+            '[' if !in_class => {
+                in_class = true;
+                cur.push(c);
+            }
+            ']' if in_class => {
+                in_class = false;
+                cur.push(c);
+            }
+            '#' if free && !in_class => {
+                while i < inner.len() && inner[i] != '\n' {
+                    cur.push(inner[i]);
+                    i += 1;
+                }
+                continue;
+            }
+            '(' if !in_class => {
+                depth += 1;
+                cur.push(c);
+            }
+            ')' if !in_class => {
+                depth = depth.saturating_sub(1);
+                cur.push(c);
+            }
+            '|' if depth == 0 && !in_class => parts.push(std::mem::take(&mut cur)),
+            _ => cur.push(c),
+        }
+        i += 1;
+    }
+    parts.push(cur);
+    parts
+}
+
+/// Rewrites PCRE look-ahead conditionals `(?(?=X)yes|no)` as `(?:(?=X)yes|(?!X)no)`.
+fn expand_conditionals(pattern: &str) -> String {
+    let free = pattern.trim_start().starts_with("(?x");
+    let mut chars: Vec<char> = pattern.chars().collect();
+    for _ in 0..64 {
+        let found = (0..chars.len().saturating_sub(4)).find(|&i| {
+            chars[i] == '(' && chars[i + 1] == '?' && chars[i + 2] == '(' && chars[i + 3] == '?'
+                && matches!(chars[i + 4], '=' | '!')
+        });
+        let Some(i) = found else { break };
+        let (Some(look_end), Some(cond_end)) = (matching_paren(&chars, i + 2, free), matching_paren(&chars, i, free)) else {
+            break;
+        };
+        let positive = chars[i + 4] == '=';
+        let content: String = chars[i + 5..look_end].iter().collect();
+        let parts = split_alternatives(&chars[look_end + 1..cond_end], free);
+        let yes = parts.first().cloned().unwrap_or_default();
+        let no = parts.get(1).cloned().unwrap_or_default();
+        let (pos, neg) = if positive { ("(?=", "(?!") } else { ("(?!", "(?=") };
+        let replacement = format!("(?:{pos}{content}){yes}|{neg}{content}){no})");
+        chars.splice(i..=cond_end, replacement.chars());
+    }
+    chars.into_iter().collect()
+}
+
+/// Emulates numbered recursion `(?N)` by unrolling group N two levels deep.
+fn expand_numbered(pattern: &str) -> String {
+    let free = pattern.trim_start().starts_with("(?x");
+    let chars: Vec<char> = pattern.chars().collect();
+    // Find calls like (?1)
+    let mut calls: Vec<usize> = Vec::new();
+    for i in 0..chars.len().saturating_sub(3) {
+        if chars[i] == '(' && chars[i + 1] == '?' && chars[i + 2].is_ascii_digit() {
+            let mut j = i + 2;
+            while j < chars.len() && chars[j].is_ascii_digit() {
+                j += 1;
+            }
+            if chars.get(j) == Some(&')') {
+                calls.push(i);
+            }
+        }
+    }
+    if calls.is_empty() {
+        return pattern.to_string();
+    }
+    // Locate capturing groups in order
+    let mut groups: Vec<(usize, usize)> = Vec::new();
+    let (mut i, mut in_class) = (0usize, false);
+    while i < chars.len() {
+        match chars[i] {
+            '\\' => i += 1,
+            '[' if !in_class => in_class = true,
+            ']' if in_class => in_class = false,
+            '#' if free && !in_class => {
+                while i < chars.len() && chars[i] != '\n' {
+                    i += 1;
+                }
+            }
+            '(' if !in_class && chars.get(i + 1) != Some(&'?') => {
+                if let Some(end) = matching_paren(&chars, i, free) {
+                    groups.push((i, end));
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    let mut out = pattern.to_string();
+    for idx in 1..=groups.len().min(9) {
+        let call = format!("(?{idx})");
+        if !out.contains(&call) {
+            continue;
+        }
+        let (start, end) = groups[idx - 1];
+        let body: String = chars[start + 1..end].iter().collect();
+        let never = "[^\\s\\S]";
+        let level2 = body.replace(&call, never);
+        let nl = if free { "\n" } else { "" };
+        let level1 = body.replace(&call, &format!("(?:{level2}{nl})"));
+        out = out.replace(&call, &format!("(?:{level1}{nl})"));
+    }
+    out
+}
+
 fn compile(p: &str) -> Option<Regex> {
-    match Regex::new(&format!("(?m){}", pcre(&expand_subroutines(p)))) {
+    match Regex::new(&format!("(?m){}", pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(p)))))) {
         Ok(r) => Some(r),
         Err(e) => {
             if std::env::var_os("RUST_NOTE_DEBUG_FNLIST").is_some() {
-                let full = pcre(&expand_subroutines(p));
+                let full = pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(p))));
                 let pos: usize = e.to_string().split("position ").nth(1).and_then(|r| r.split(':').next()).and_then(|n| n.trim().parse().ok()).unwrap_or(0);
                 let from = pos.saturating_sub(40).min(full.len());
                 let ctx: String = full.chars().skip(from).take(80).collect();
@@ -556,12 +689,12 @@ pub fn symbols_for(content: &str, lang: Language) -> Vec<DocumentSymbol> {
         if let Some(parser) = load_parser(lang) {
             let mut syms = run(&parser, content);
             if !syms.is_empty() {
-                // Keep the built-in type/class entries when the Notepad++ parser has no class rule for them
+                // Complete with built-in entries on lines the Notepad++ parser did not report
                 let known: Vec<usize> = syms.iter().map(|s| s.line).collect();
                 syms.extend(
                     extract_symbols(content, lang)
                         .into_iter()
-                        .filter(|s| s.kind != SymbolKind::Function && !known.contains(&s.line)),
+                        .filter(|s| !known.contains(&s.line)),
                 );
                 syms.sort_by_key(|s| s.line);
                 // Drop entries that are just a language keyword when the same line has a real name
@@ -597,6 +730,19 @@ mod tests {
         let syms = run(&parser, code);
         assert_eq!(syms.len(), 1);
         assert_eq!(syms[0].line, 2);
+    }
+
+    #[test]
+    fn emulates_conditionals_and_numbered_recursion() {
+        // (?(?=x)A|B): "x" must be followed by A, anything else by B
+        let re = compile(&format!("^(?(?=x)xA|BB)$")).expect("conditional compiles");
+        assert!(re.is_match("xA").unwrap_or(false));
+        assert!(re.is_match("BB").unwrap_or(false));
+        assert!(!re.is_match("xBB").unwrap_or(true));
+        // Balanced parentheses up to two levels through (?1)
+        let re = compile(r"^(\((?:[^()]+|(?1))*\))$").expect("recursion compiles");
+        assert!(re.is_match("(a(b)c)").unwrap_or(false));
+        assert!(!re.is_match("(a(b c)").unwrap_or(true));
     }
 
     /// Informational: how many of the installed Notepad++ parsers compile (skipped when absent).

@@ -162,6 +162,13 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                         symbols.push(DocumentSymbol { name, kind: SymbolKind::Enum, line: line_num });
                     }
                 } else if matches!(lang, Language::Sql) {
+                    let prefix = "CREATE OR REPLACE ";
+                    let normalized: String = if t.len() >= prefix.len() && t[..prefix.len()].eq_ignore_ascii_case(prefix) {
+                        format!("CREATE {}", &t[prefix.len()..])
+                    } else {
+                        t.to_string()
+                    };
+                    let t = normalized.as_str();
                     let upper = t.to_uppercase();
                     for (kw, kind) in [
                         ("CREATE TABLE ", SymbolKind::StructOrClass),
