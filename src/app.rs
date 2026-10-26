@@ -2317,20 +2317,30 @@ impl eframe::App for RustNoteApp {
                                         }
                                     }
                                     let (l1, l2, c1, c2) = sel.bounds();
-                                    let starts: Vec<usize> = std::iter::once(0)
-                                        .chain(doc.content.chars().enumerate().filter(|(_, c)| *c == '\n').map(|(i, _)| i + 1))
-                                        .collect();
                                     let fill = ui.visuals().selection.bg_fill.gamma_multiply(0.8);
-                                    for l in l1..=l2 {
-                                        if let Some(start) = starts.get(l) {
-                                            let r = output.galley.pos_from_cursor(egui::text::CCursor::new(*start));
+                                    // Paint the block on every visual row of the selected logical lines
+                                    let mut logical = 0usize;
+                                    let mut new_line = true;
+                                    for placed in &output.galley.rows {
+                                        if new_line {
+                                            new_line = false;
+                                        }
+                                        if logical >= l1 && logical <= l2 {
                                             let x0 = output.galley_pos.x + c1 as f32 * cw;
                                             let x1 = (output.galley_pos.x + c2 as f32 * cw).max(x0 + 2.0);
-                                            let y0 = output.galley_pos.y + r.min.y;
-                                            let rect = egui::Rect::from_min_max(egui::pos2(x0, y0), egui::pos2(x1, y0 + r.height()));
+                                            let y0 = output.galley_pos.y + placed.pos.y;
+                                            let rect = egui::Rect::from_min_max(
+                                                egui::pos2(x0, y0),
+                                                egui::pos2(x1, y0 + placed.row.height()),
+                                            );
                                             ui.painter().rect_filled(rect, 0.0, fill);
                                         }
+                                        if placed.row.ends_with_newline {
+                                            logical += 1;
+                                            new_line = true;
+                                        }
                                     }
+                                    let _ = (c1, new_line);
                                 }
                                 let _ = alt;
                             }

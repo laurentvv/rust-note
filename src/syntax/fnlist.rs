@@ -516,6 +516,14 @@ pub fn symbols_for(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                         .filter(|s| s.kind != SymbolKind::Function && !known.contains(&s.line)),
                 );
                 syms.sort_by_key(|s| s.line);
+                // Drop entries that are just a language keyword when the same line has a real name
+                let keywords = lang.keywords();
+                let lines: Vec<usize> = syms.iter().map(|s| s.line).collect();
+                let mut seen = std::collections::HashMap::new();
+                for l in &lines {
+                    *seen.entry(*l).or_insert(0usize) += 1;
+                }
+                syms.retain(|s| !(seen.get(&s.line).copied().unwrap_or(0) > 1 && keywords.contains(&s.name.as_str())));
                 return syms;
             }
         }
