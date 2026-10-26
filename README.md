@@ -94,7 +94,7 @@ Run the test suite with `cargo test`.
 
 ## Known limitations
 
-- Column selection treats a tab as one column; with word wrap on, the block applies to whole logical lines and is highlighted on their first visual row.
+- With word wrap on, a column block applies to whole logical lines and is highlighted on their first visual row (tabs are handled as 4 visual columns).
 - Four Notepad++ function-list parsers (C, Java, Nim, SQL) need true PCRE recursion or conditionals and fall back to the built-in rules.
 
 ## License
