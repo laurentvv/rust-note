@@ -44,6 +44,8 @@ pub struct RustNoteApp {
     pub last_title: String,
     pub force_quit: bool,
     pub settings: Settings,
+    pub completion: CompletionState,
+    pub show_shortcuts: bool,
     saved_settings: Settings,
 }
 
@@ -136,6 +138,8 @@ impl RustNoteApp {
             show_function_list: settings.show_function_list,
             last_title: String::new(),
             force_quit: false,
+            completion: CompletionState::default(),
+            show_shortcuts: false,
             saved_settings: settings.clone(),
             settings,
         };
@@ -778,6 +782,84 @@ impl RustNoteApp {
             doc.pending_selection = Some((keep.min(len), keep.min(len)));
         }
     }
+}
+
+/// Auto-completion popup state (candidates for the word being typed).
+#[derive(Debug, Clone, Default)]
+pub struct CompletionState {
+    pub items: Vec<String>,
+    pub selected: usize,
+    /// Caret position (char index) the candidates were computed for.
+    pub at: usize,
+}
+
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Keywords of the language plus words already present in the document that start with the
+/// word before the caret.
+fn completion_candidates(content: &str, caret: usize, lang: Language, forced: bool) -> Vec<String> {
+    if content.len() > 2_000_000 {
+        return Vec::new();
+    }
+    let chars: Vec<char> = content.chars().collect();
+    let end = caret.min(chars.len());
+    let mut start = end;
+    while start > 0 && is_word_char(chars[start - 1]) {
+        start -= 1;
+    }
+    let prefix: String = chars[start..end].iter().collect();
+    if prefix.chars().count() < if forced { 1 } else { 2 } {
+        return Vec::new();
+    }
+    let ci = matches!(lang, Language::Sql | Language::Batch);
+    let matches_prefix = |w: &str| {
+        let ok = if ci { w.to_lowercase().starts_with(&prefix.to_lowercase()) } else { w.starts_with(&prefix) };
+        ok && w != prefix
+    };
+    let mut set = std::collections::BTreeSet::new();
+    for kw in lang.keywords() {
+        if matches_prefix(kw) {
+            set.insert((*kw).to_string());
+        }
+    }
+    let mut word = String::new();
+    let mut word_start = 0usize;
+    for (i, c) in chars.iter().copied().chain(std::iter::once(' ')).enumerate() {
+        if is_word_char(c) {
+            if word.is_empty() {
+                word_start = i;
+            }
+            word.push(c);
+        } else if !word.is_empty() {
+            // Skip the word currently being typed
+            if word_start != start && word.chars().count() >= 3 && matches_prefix(&word) {
+                set.insert(word.clone());
+            }
+            word.clear();
+        }
+    }
+    set.into_iter().take(8).collect()
+}
+
+fn apply_completion(doc: &mut Document, item: &str, ctx: &Context, id: egui::Id) {
+    let chars: Vec<char> = doc.content.chars().collect();
+    let end = doc.cursor_char.min(chars.len());
+    let mut start = end;
+    while start > 0 && is_word_char(chars[start - 1]) {
+        start -= 1;
+    }
+    let mut out: String = chars[..start].iter().collect();
+    out.push_str(item);
+    out.extend(chars[end..].iter());
+    doc.content = out;
+    doc.record_typing();
+    let pos = start + item.chars().count();
+    let mut st = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
+    st.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(pos))));
+    st.store(ctx, id);
+    doc.cursor_char = pos;
 }
 
 /// Darkens pastel UI accents on the light theme so they stay readable.
@@ -1450,12 +1532,16 @@ impl eframe::App for RustNoteApp {
 
                 // --- HELP (?) ---
                 ui.menu_button("?", |ui| {
+                    if ui.button("Keyboard Shortcuts").clicked() {
+                        self.show_shortcuts = true;
+                        ui.close();
+                    }
                     if ui.button("About rust-note").clicked() {
                         self.about.is_open = true;
                         ui.close();
                     }
                     if ui.button("Documentation & Sources").clicked() {
-                        ctx.open_url(egui::OpenUrl::new_tab("https://github.com/rust-note/rust-note"));
+                        ctx.open_url(egui::OpenUrl::new_tab("https://github.com/laurentvv/rust-note"));
                         ui.close();
                     }
                 });
@@ -1787,6 +1873,7 @@ impl eframe::App for RustNoteApp {
         }
 
         // 5. Central Panel (Editor Canvas)
+        let mut completion = std::mem::take(&mut self.completion);
         let editor_bg = self.theme.colors().editor;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(editor_bg).inner_margin(egui::Margin::same(4)))
@@ -1849,6 +1936,32 @@ impl eframe::App for RustNoteApp {
                         if !find_open {
                             ui.ctx().memory_mut(|m| m.request_focus(editor_id));
                         }
+                    }
+
+                    // Auto-completion popup: navigation / accept keys are handled before the editor sees them
+                    let mut accept_idx: Option<usize> = None;
+                    let force_complete = ui.ctx().input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Space));
+                    if !completion.items.is_empty() && ui.ctx().memory(|m| m.has_focus(editor_id)) {
+                        let n = completion.items.len();
+                        ui.ctx().input_mut(|i| {
+                            if i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown) {
+                                completion.selected = (completion.selected + 1) % n;
+                            } else if i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp) {
+                                completion.selected = (completion.selected + n - 1) % n;
+                            } else if i.consume_key(egui::Modifiers::NONE, egui::Key::Tab)
+                                || i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)
+                            {
+                                accept_idx = Some(completion.selected);
+                            } else if i.consume_key(egui::Modifiers::NONE, egui::Key::Escape) {
+                                completion.items.clear();
+                            }
+                        });
+                    }
+                    if let Some(idx) = accept_idx {
+                        if let Some(item) = completion.items.get(idx).cloned() {
+                            apply_completion(doc, &item, ui.ctx(), editor_id);
+                        }
+                        completion.items.clear();
                     }
 
                     // Column (rectangular) selection: typing / delete / copy / cut / paste act on the block
@@ -2085,6 +2198,44 @@ impl eframe::App for RustNoteApp {
                                 let _ = alt;
                             }
 
+                            // Auto-completion: refresh candidates after typing, close when the caret moves away
+                            if let Some(range) = cursor_range {
+                                if (response.changed() || force_complete)
+                                    && !doc.is_readonly
+                                    && doc.column_sel.is_none()
+                                    && range.primary == range.secondary
+                                {
+                                    completion.items = completion_candidates(&doc.content, range.primary.index, doc_lang, force_complete);
+                                    completion.selected = 0;
+                                    completion.at = range.primary.index;
+                                } else if range.primary.index != completion.at || !response.has_focus() {
+                                    completion.items.clear();
+                                }
+                                if !completion.items.is_empty() {
+                                    let r = output.galley.pos_from_cursor(range.primary).translate(output.galley_pos.to_vec2());
+                                    let mut clicked = None;
+                                    egui::Area::new(egui::Id::new("completion_popup"))
+                                        .order(egui::Order::Foreground)
+                                        .fixed_pos(r.left_bottom() + egui::vec2(0.0, 2.0))
+                                        .show(ui.ctx(), |ui| {
+                                            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                                                for (i, item) in completion.items.iter().enumerate() {
+                                                    let resp = ui.selectable_label(i == completion.selected, RichText::new(item).monospace());
+                                                    if resp.clicked() {
+                                                        clicked = Some(i);
+                                                    }
+                                                }
+                                            });
+                                        });
+                                    if let Some(i) = clicked {
+                                        if let Some(item) = completion.items.get(i).cloned() {
+                                            apply_completion(doc, &item, ui.ctx(), editor_id);
+                                        }
+                                        completion.items.clear();
+                                    }
+                                }
+                            }
+
                             if gutter_rect.is_some() {
                                 let mut line_no = 1usize;
                                 let mut new_line = true;
@@ -2242,6 +2393,8 @@ impl eframe::App for RustNoteApp {
             );
         });
 
+        self.completion = completion;
+
         // 6. Dialog Renderings
         let action = dialogs::render_find_replace(ctx, &mut self.find_replace);
         match action {
@@ -2261,6 +2414,44 @@ impl eframe::App for RustNoteApp {
                 1
             };
             self.set_notification(format!("Jumped to line {target_line}"));
+        }
+
+        if self.show_shortcuts {
+            let mut open = true;
+            egui::Window::new("Keyboard Shortcuts").open(&mut open).resizable(false).show(ctx, |ui| {
+                let rows: [(&str, &str); 22] = [
+                    ("New / Open / Save", "Ctrl+N / Ctrl+O / Ctrl+S"),
+                    ("Save All / Save As", "Ctrl+Shift+S / Ctrl+Alt+S"),
+                    ("Close tab / Restore tab", "Ctrl+W / Ctrl+Shift+T"),
+                    ("Next / previous tab", "Ctrl+PageDown / Ctrl+PageUp"),
+                    ("Find / Replace", "Ctrl+F / Ctrl+H"),
+                    ("Find next / previous", "F3 / Shift+F3"),
+                    ("Go to line", "Ctrl+G"),
+                    ("Duplicate line", "Ctrl+D"),
+                    ("Delete line", "Ctrl+L"),
+                    ("Move line up / down", "Ctrl+Shift+Up / Down"),
+                    ("Join lines", "Ctrl+J"),
+                    ("Toggle comment", "Ctrl+Q"),
+                    ("UPPERCASE / lowercase", "Ctrl+Shift+U / Ctrl+U"),
+                    ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
+                    ("Select word / line", "Double-click / Triple-click"),
+                    ("Extend selection", "Shift+click, Shift+arrows"),
+                    ("Select by word", "Ctrl+Shift+Left / Right"),
+                    ("Column selection", "Alt+drag"),
+                    ("Auto-completion", "type 2+ letters, Ctrl+Space"),
+                    ("Accept / navigate completion", "Tab or Enter / Up, Down"),
+                    ("Zoom", "Ctrl+Wheel, Ctrl+Plus / Minus / 0"),
+                    ("Function list", "Ctrl+Alt+L"),
+                ];
+                egui::Grid::new("shortcut_grid").num_columns(2).spacing([24.0, 4.0]).striped(true).show(ui, |ui| {
+                    for (what, keys) in rows {
+                        ui.label(what);
+                        ui.label(RichText::new(keys).monospace().strong());
+                        ui.end_row();
+                    }
+                });
+            });
+            self.show_shortcuts = open;
         }
 
         dialogs::render_about(ctx, &mut self.about);
@@ -2324,5 +2515,22 @@ impl eframe::App for RustNoteApp {
                 self.conversion_panel.is_open = false;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn completion_uses_keywords_and_document_words() {
+        let text = "let alphabet = 1;
+al";
+        let caret = text.chars().count();
+        let items = completion_candidates(text, caret, Language::Rust, false);
+        assert_eq!(items, vec!["alphabet".to_string()]);
+        let items = completion_candidates("le", 2, Language::Rust, false);
+        assert_eq!(items, vec!["let".to_string()]);
+        assert!(completion_candidates("a", 1, Language::Rust, false).is_empty());
     }
 }

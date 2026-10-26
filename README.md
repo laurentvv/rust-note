@@ -16,6 +16,7 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - Multi-tab interface with dirty indicators, middle-click / `×` close, tab context menu, **Restore Closed Tab** (`Ctrl+Shift+T`) and **drag & drop** to open files.
 - **Syntax highlighting** for Rust, C/C++, C#, Java, Python, JavaScript/TypeScript, Go, SQL, HTML/XML, CSS, JSON, YAML, TOML, shell, PowerShell, Batch, Markdown and more.
 - Line-number gutter aligned with wrapped lines, current-line highlight, word wrap toggle.
+- **Auto-completion** popup (language keywords + words from the document; `Ctrl+Space`, `Tab`/`Enter` to accept).
 - **Auto-indent** on Enter (extra level after `{`, `(`, `[`, `:`).
 - Full **undo / redo** history with typing grouped into natural steps.
 - **Column (rectangular) selection** with `Alt`+drag: type, delete, copy, cut and paste across all selected lines.
@@ -68,6 +69,8 @@ The optimized binary is produced at `target/release/rust-note` (`rust-note.exe` 
 | Comment / join lines | `Ctrl+Q` / `Ctrl+J` |
 | Upper / lower case | `Ctrl+Shift+U` / `Ctrl+U` |
 | Function list | `Ctrl+Alt+L` |
+| Column selection | `Alt`+drag |
+| Auto-completion | `Ctrl+Space` |
 | Zoom | `Ctrl+Wheel`, `Ctrl+±`, `Ctrl+0` |
 
 ## Project layout
