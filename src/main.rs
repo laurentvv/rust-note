@@ -8,6 +8,7 @@ pub mod cli;
 pub mod editor;
 pub mod plugins;
 pub mod search;
+pub mod settings;
 pub mod syntax;
 pub mod ui;
 

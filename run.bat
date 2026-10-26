@@ -1,2 +1,2 @@
 @echo off
-start "" "%~dp0target\release\notepadpp-rs.exe" %*
+start "" "%~dp0target\release\rust-note.exe" %*

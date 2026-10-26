@@ -7,8 +7,18 @@ use eframe::egui::{self, Context, Window};
 pub enum FindTab {
     Find,
     Replace,
-    Mark,
-    FindInFiles,
+    FindAll,
+}
+
+/// One hit of "Find All in Open Documents".
+#[derive(Debug, Clone)]
+pub struct FindHit {
+    pub doc_index: usize,
+    pub doc_title: String,
+    pub line: usize,
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub preview: String,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +29,8 @@ pub struct FindReplaceState {
     pub replacement: String,
     pub options: SearchOptions,
     pub status_message: Option<String>,
+    pub focus_query: bool,
+    pub results: Vec<FindHit>,
 }
 
 impl Default for FindReplaceState {
@@ -30,6 +42,8 @@ impl Default for FindReplaceState {
             replacement: String::new(),
             options: SearchOptions::default(),
             status_message: None,
+            focus_query: false,
+            results: Vec::new(),
         }
     }
 }
@@ -39,6 +53,7 @@ pub struct GoToLineState {
     pub is_open: bool,
     pub line_input: String,
     pub max_lines: usize,
+    pub focus: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -64,6 +79,9 @@ pub enum DialogAction {
     FindPrev,
     ReplaceOne,
     ReplaceAll,
+    Count,
+    FindAllOpen,
+    JumpTo(usize, usize, usize),
     GoToLine(usize),
 }
 
@@ -78,58 +96,68 @@ pub fn render_find_replace(
 
     let mut action = DialogAction::None;
     let mut is_open = state.is_open;
+    let mut close_clicked = false;
 
+    let screen = ctx.content_rect();
     Window::new("Find / Replace")
         .open(&mut is_open)
+        .default_pos(egui::pos2((screen.right() - 520.0).max(10.0), screen.top() + 90.0))
         .resizable(true)
-        .default_size([460.0, 280.0])
+        .default_size([480.0, 300.0])
         .show(ctx, |ui| {
-            // Tab header
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut state.tab, FindTab::Find, "Find");
                 ui.selectable_value(&mut state.tab, FindTab::Replace, "Replace");
-                ui.selectable_value(&mut state.tab, FindTab::Mark, "Mark");
-                ui.selectable_value(&mut state.tab, FindTab::FindInFiles, "Find in Files");
+                ui.selectable_value(&mut state.tab, FindTab::FindAll, "Find in Open Documents");
             });
             ui.separator();
 
-            // Find what
-            ui.horizontal(|ui| {
-                ui.label("Find what:      ");
-                ui.text_edit_singleline(&mut state.query);
+            let mut enter_pressed = false;
+            egui::Grid::new("find_grid").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
+                ui.label("Find what:");
+                let r = ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(300.0));
+                if state.focus_query {
+                    r.request_focus();
+                    state.focus_query = false;
+                }
+                if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    enter_pressed = true;
+                    r.request_focus();
+                }
+                ui.end_row();
+                if state.tab == FindTab::Replace {
+                    ui.label("Replace with:");
+                    ui.add(egui::TextEdit::singleline(&mut state.replacement).desired_width(300.0));
+                    ui.end_row();
+                }
             });
 
-            // Replace with (if on Replace tab)
-            if state.tab == FindTab::Replace {
-                ui.horizontal(|ui| {
-                    ui.label("Replace with: ");
-                    ui.text_edit_singleline(&mut state.replacement);
-                });
-            }
-
-            ui.add_space(8.0);
-
-            // Search options checkboxes
+            ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     ui.checkbox(&mut state.options.match_case, "Match case");
                     ui.checkbox(&mut state.options.whole_word, "Match whole word only");
                     ui.checkbox(&mut state.options.use_regex, "Regular expression");
                 });
-
+                ui.add_space(24.0);
                 ui.vertical(|ui| {
                     ui.radio_value(&mut state.options.search_down, true, "Down");
                     ui.radio_value(&mut state.options.search_down, false, "Up");
                 });
             });
 
-            ui.add_space(8.0);
+            ui.add_space(6.0);
             ui.separator();
 
-            // Action buttons
-            ui.horizontal(|ui| {
-                if ui.button("Find Next").clicked() {
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Find Next").clicked() || (enter_pressed && state.tab != FindTab::FindAll) {
                     action = DialogAction::FindNext;
+                }
+                if ui.button("Find Previous").clicked() {
+                    action = DialogAction::FindPrev;
+                }
+                if ui.button("Count").clicked() {
+                    action = DialogAction::Count;
                 }
                 if state.tab == FindTab::Replace {
                     if ui.button("Replace").clicked() {
@@ -139,8 +167,13 @@ pub fn render_find_replace(
                         action = DialogAction::ReplaceAll;
                     }
                 }
+                if state.tab == FindTab::FindAll
+                    && (ui.button("Find All").clicked() || enter_pressed)
+                {
+                    action = DialogAction::FindAllOpen;
+                }
                 if ui.button("Close").clicked() {
-                    state.is_open = false;
+                    close_clicked = true;
                 }
             });
 
@@ -148,9 +181,21 @@ pub fn render_find_replace(
                 ui.add_space(4.0);
                 ui.label(egui::RichText::new(msg).color(egui::Color32::LIGHT_BLUE));
             }
+
+            if state.tab == FindTab::FindAll && !state.results.is_empty() {
+                ui.separator();
+                egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+                    for hit in &state.results {
+                        let text = format!("{}  (line {}):  {}", hit.doc_title, hit.line, hit.preview);
+                        if ui.selectable_label(false, egui::RichText::new(text).monospace()).clicked() {
+                            action = DialogAction::JumpTo(hit.doc_index, hit.byte_start, hit.byte_end);
+                        }
+                    }
+                });
+            }
         });
 
-    state.is_open = is_open;
+    state.is_open = is_open && !close_clicked;
     action
 }
 
@@ -175,6 +220,10 @@ pub fn render_go_to_line(
         .show(ctx, |ui| {
             ui.label(format!("Line number (1 - {}):", state.max_lines.max(1)));
             let response = ui.text_edit_singleline(&mut state.line_input);
+            if state.focus {
+                response.request_focus();
+                state.focus = false;
+            }
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 if let Ok(num) = state.line_input.trim().parse::<usize>() {
                     action = DialogAction::GoToLine(num);

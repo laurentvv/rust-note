@@ -6,7 +6,9 @@ use crate::buffer::{Document, Encoding, EolFormat};
 use crate::cli::CliArgs;
 use crate::editor::operations::{self, CaseMode};
 use crate::plugins;
-use crate::search;
+use crate::search::{self, SearchOptions};
+use crate::settings::Settings;
+use crate::syntax::highlight::{highlight as syntax_highlight, Palette};
 use crate::syntax::Language;
 use crate::ui::dialogs::{
     self, AboutState, DialogAction, FindReplaceState, FindTab, GoToLineState, SummaryState,
@@ -44,6 +46,10 @@ pub struct RustNoteApp {
     pub status_notification: Option<(String, std::time::Instant)>,
     pub closed_docs: Vec<Document>,
     pub show_function_list: bool,
+    pub last_title: String,
+    pub force_quit: bool,
+    pub settings: Settings,
+    saved_settings: Settings,
 }
 
 impl RustNoteApp {
@@ -53,6 +59,7 @@ impl RustNoteApp {
         let visuals = egui::Visuals::dark();
         cc.egui_ctx.set_visuals(visuals);
 
+        let settings = Settings::load();
         let mut docs = Vec::new();
 
         // Load files from CLI args if provided
@@ -69,6 +76,15 @@ impl RustNoteApp {
                 }
                 Err(err) => {
                     eprintln!("Warning: Failed to open file {}: {err}", file.display());
+                }
+            }
+        }
+
+        // Restore the previous session when launched without files
+        if docs.is_empty() && !cli.no_session {
+            for file in &settings.session_files {
+                if let Ok(doc) = Document::from_file(file) {
+                    docs.push(doc);
                 }
             }
         }
@@ -92,6 +108,13 @@ impl RustNoteApp {
             if let Some(c) = cli.col {
                 doc.cursor_col = c;
             }
+            if cli.line.is_some() || cli.col.is_some() {
+                let line_start = doc.char_index_of_line(doc.cursor_line.max(1));
+                let pos = (line_start + doc.cursor_col.saturating_sub(1)).min(doc.char_count());
+                doc.pending_selection = Some((pos, pos));
+            } else if let Some(p) = cli.pos {
+                doc.pending_selection = Some((p.min(doc.char_count()), p.min(doc.char_count())));
+            }
         }
 
         let initial_lang = docs.first().and_then(|d| d.language).unwrap_or(Language::PlainText);
@@ -106,16 +129,20 @@ impl RustNoteApp {
             summary: SummaryState::default(),
             conversion_panel: plugins::ConversionPanelState::default(),
             symbol_filter: String::new(),
-            font_size: 14.0,
-            show_line_numbers: true,
-            word_wrap: true,
+            font_size: settings.font_size.clamp(8.0, 40.0),
+            show_line_numbers: settings.show_line_numbers,
+            word_wrap: settings.word_wrap,
             show_symbols: false,
             document_map: false,
             current_language: initial_lang,
-            theme: EditorTheme::DarkMode,
+            theme: if settings.dark_theme { EditorTheme::DarkMode } else { EditorTheme::ClassicLight },
             status_notification: None,
             closed_docs: Vec::new(),
-            show_function_list: false,
+            show_function_list: settings.show_function_list,
+            last_title: String::new(),
+            force_quit: false,
+            saved_settings: settings.clone(),
+            settings,
         };
         app.apply_theme(&cc.egui_ctx);
         app
@@ -204,6 +231,11 @@ impl RustNoteApp {
 
         match Document::from_file(&path) {
             Ok(doc) => {
+                self.settings.push_recent(&path);
+                // Replace the pristine placeholder tab instead of keeping an empty one
+                if self.docs.len() == 1 && self.docs[0].path.is_none() && !self.docs[0].is_dirty && self.docs[0].content.is_empty() {
+                    self.docs.clear();
+                }
                 self.docs.push(doc);
                 self.active_index = self.docs.len() - 1;
                 self.set_notification(format!("Opened {}", path.display()));
@@ -313,73 +345,234 @@ impl RustNoteApp {
         }
     }
 
-    pub fn close_current(&mut self) {
-        if let Some(doc) = self.docs.get(self.active_index) {
-            if doc.path.is_some() || !doc.content.is_empty() {
-                if self.closed_docs.len() >= 25 {
-                    self.closed_docs.remove(0);
-                }
-                self.closed_docs.push(doc.clone());
-            }
+    /// Asks the user whether to save a modified document. Returns false if the close must be aborted.
+    fn confirm_close(&mut self, idx: usize) -> bool {
+        let Some(doc) = self.docs.get(idx) else { return true };
+        if !doc.is_dirty {
+            return true;
         }
+        let title = doc.title.clone();
+        let choice = rfd::MessageDialog::new()
+            .set_title("rust-note")
+            .set_description(format!("Save changes to \"{title}\"?"))
+            .set_buttons(rfd::MessageButtons::YesNoCancel)
+            .set_level(rfd::MessageLevel::Warning)
+            .show();
+        match choice {
+            rfd::MessageDialogResult::Yes => {
+                let prev = self.active_index;
+                self.active_index = idx;
+                self.save_current();
+                self.active_index = prev;
+                !self.docs.get(idx).is_some_and(|d| d.is_dirty)
+            }
+            rfd::MessageDialogResult::No => true,
+            _ => false,
+        }
+    }
 
-        if self.docs.len() <= 1 {
-            // Keep at least one empty document
-            self.docs[0] = Document::new_empty(Some("new 1"));
-            self.set_notification("Document closed");
+    fn remember_closed(&mut self, doc: Document) {
+        if doc.path.is_some() || !doc.content.is_empty() {
+            if self.closed_docs.len() >= 25 {
+                self.closed_docs.remove(0);
+            }
+            self.closed_docs.push(doc);
+        }
+    }
+
+    /// Closes the tab at `idx` (after confirmation), remembering it for restoration.
+    pub fn close_at(&mut self, idx: usize) {
+        if idx >= self.docs.len() || !self.confirm_close(idx) {
             return;
         }
-
-        self.docs.remove(self.active_index);
-        if self.active_index >= self.docs.len() {
-            self.active_index = self.docs.len() - 1;
+        let doc = self.docs[idx].clone();
+        self.remember_closed(doc);
+        if self.docs.len() <= 1 {
+            self.docs[0] = Document::new_empty(Some("new 1"));
+            self.active_index = 0;
+        } else {
+            self.docs.remove(idx);
+            if idx < self.active_index {
+                self.active_index -= 1;
+            }
+            self.active_index = self.active_index.min(self.docs.len() - 1);
         }
         self.set_notification("Document closed");
     }
 
+    pub fn close_current(&mut self) {
+        self.close_at(self.active_index);
+    }
+
     pub fn close_all(&mut self) {
-        self.docs.clear();
+        let mut i = 0;
+        while i < self.docs.len() {
+            if !self.confirm_close(i) {
+                self.active_index = self.active_index.min(self.docs.len() - 1);
+                return;
+            }
+            i += 1;
+        }
+        let docs = std::mem::take(&mut self.docs);
+        for d in docs {
+            self.remember_closed(d);
+        }
         self.docs.push(Document::new_empty(Some("new 1")));
         self.active_index = 0;
         self.set_notification("All documents closed");
     }
 
-    pub fn close_all_except_current(&mut self) {
-        if self.docs.is_empty() {
-            return;
+    pub fn close_all_except(&mut self, keep: usize) {
+        let Some(keep_id) = self.docs.get(keep).map(|d| d.id) else { return };
+        let mut i = 0;
+        while i < self.docs.len() {
+            if self.docs[i].id == keep_id {
+                i += 1;
+                continue;
+            }
+            if !self.confirm_close(i) {
+                return;
+            }
+            let doc = self.docs.remove(i);
+            self.remember_closed(doc);
         }
-        let current = self.docs.remove(self.active_index);
-        self.docs.clear();
-        self.docs.push(current);
         self.active_index = 0;
         self.set_notification("Closed other documents");
     }
 
+    pub fn close_all_except_current(&mut self) {
+        self.close_all_except(self.active_index);
+    }
+
+    /// True if any open document has unsaved changes.
+    pub fn any_dirty(&self) -> bool {
+        self.docs.iter().any(|d| d.is_dirty)
+    }
+
+    /// Selects a char range in the active document and scrolls the editor to it.
+    pub fn select_chars(&mut self, start: usize, end: usize) {
+        if let Some(doc) = self.active_doc_mut() {
+            doc.pending_selection = Some((start, end));
+        }
+    }
+
+    pub fn goto_line_in_active(&mut self, line: usize) {
+        if let Some(doc) = self.active_doc_mut() {
+            let l = line.clamp(1, doc.line_count());
+            let start = doc.char_index_of_line(l);
+            doc.cursor_line = l;
+            doc.pending_selection = Some((start, start));
+        }
+    }
+
+    /// Inserts text at the cursor (replacing the selection).
+    pub fn insert_at_cursor(&mut self, text: &str) {
+        if let Some(doc) = self.active_doc_mut() {
+            let chars: Vec<char> = doc.content.chars().collect();
+            let start = doc.cursor_char.min(chars.len());
+            let end = (start + doc.selection_len).min(chars.len());
+            let mut out: String = chars[..start].iter().collect();
+            out.push_str(text);
+            out.extend(chars[end..].iter());
+            doc.set_content(out);
+            let pos = start + text.chars().count();
+            doc.pending_selection = Some((pos, pos));
+        }
+    }
+
     // --- Search & Replace Executions ---
-    pub fn execute_find_next(&mut self) {
+    fn selection_byte_range(doc: &Document) -> (usize, usize) {
+        let mut offsets = doc.content.char_indices().map(|(b, _)| b).chain(std::iter::once(doc.content.len()));
+        let start = offsets.clone().nth(doc.cursor_char).unwrap_or(doc.content.len());
+        let end = offsets.nth(doc.cursor_char + doc.selection_len).unwrap_or(doc.content.len());
+        (start, end)
+    }
+
+    pub fn execute_find(&mut self, forward: bool) -> bool {
         let query = self.find_replace.query.clone();
+        let opts = self.find_replace.options.clone();
+        if query.is_empty() {
+            self.find_replace.status_message = Some("Enter text to search for".into());
+            return false;
+        }
+        let Some(doc) = self.docs.get(self.active_index) else { return false };
+        let (sel_start, sel_end) = Self::selection_byte_range(doc);
+        let from = if forward { sel_end } else { sel_start };
+        let result = search::find_from(&doc.content, &query, &opts, from, forward);
+        match result {
+            Ok(Some((s, e, wrapped))) => {
+                let cs = doc.char_index_of_byte(s);
+                let ce = doc.char_index_of_byte(e);
+                let line = doc.line_col_from_char_index(cs).0;
+                self.select_chars(cs, ce);
+                self.find_replace.status_message = Some(if wrapped {
+                    format!("Found at line {line} (wrapped around the document)")
+                } else {
+                    format!("Found at line {line}")
+                });
+                true
+            }
+            Ok(None) => {
+                self.find_replace.status_message = Some(format!("Can't find the text \"{query}\""));
+                false
+            }
+            Err(e) => {
+                self.find_replace.status_message = Some(e);
+                false
+            }
+        }
+    }
+
+    pub fn execute_find_next(&mut self) {
+        let forward = self.find_replace.options.search_down;
+        self.execute_find(forward);
+    }
+
+    pub fn execute_count(&mut self) {
+        let query = self.find_replace.query.clone();
+        let opts = self.find_replace.options.clone();
+        if let Some(doc) = self.active_doc() {
+            self.find_replace.status_message = Some(match search::find_all(&doc.content, &query, &opts) {
+                Ok(m) => format!("Count: {} match(es) in the current document", m.len()),
+                Err(e) => e,
+            });
+        }
+    }
+
+    pub fn execute_replace_one(&mut self) {
+        let query = self.find_replace.query.clone();
+        let repl = self.find_replace.replacement.clone();
         let opts = self.find_replace.options.clone();
         if query.is_empty() {
             return;
         }
-
+        // If the current selection is a match, replace it; then move to the next one.
+        let mut replaced = false;
         if let Some(doc) = self.active_doc_mut() {
-            match search::find_all(&doc.content, &query, &opts) {
-                Ok(matches) => {
-                    if matches.is_empty() {
-                        self.find_replace.status_message =
-                            Some("Can't find the text \"".to_string() + &query + "\"");
-                    } else {
-                        let m = &matches[0];
-                        doc.cursor_line = m.line;
-                        self.find_replace.status_message =
-                            Some(format!("Found {} matches. At line {}", matches.len(), m.line));
+            if !doc.is_readonly && doc.selection_len > 0 {
+                let (s, e) = Self::selection_byte_range(doc);
+                if let Ok(Some((ms, me, _))) = search::find_from(&doc.content, &query, &opts, s, true) {
+                    if ms == s && me == e {
+                        let new_text = search::replacement_for(&doc.content[s..e], &query, &repl, &opts);
+                        let mut out = doc.content.clone();
+                        out.replace_range(s..e, &new_text);
+                        let pos = doc.cursor_char + new_text.chars().count();
+                        doc.set_content(out);
+                        doc.cursor_char = pos;
+                        doc.selection_len = 0;
+                        doc.pending_selection = Some((pos, pos));
+                        replaced = true;
                     }
                 }
-                Err(e) => {
-                    self.find_replace.status_message = Some(e);
-                }
             }
+        }
+        let found = self.execute_find(true);
+        if replaced {
+            self.find_replace.status_message = Some(if found {
+                "Replaced 1 occurrence; next match selected".into()
+            } else {
+                "Replaced 1 occurrence; no more matches".into()
+            });
         }
     }
 
@@ -389,6 +582,10 @@ impl RustNoteApp {
         let opts = self.find_replace.options.clone();
 
         if let Some(doc) = self.active_doc_mut() {
+            if doc.is_readonly {
+                self.find_replace.status_message = Some("Document is read-only".into());
+                return;
+            }
             match search::replace_all(&doc.content, &query, &repl, &opts) {
                 Ok((new_text, count)) => {
                     doc.set_content(new_text);
@@ -401,6 +598,70 @@ impl RustNoteApp {
                 }
             }
         }
+    }
+
+    pub fn execute_find_all_open(&mut self) {
+        let query = self.find_replace.query.clone();
+        let opts = self.find_replace.options.clone();
+        let mut hits = Vec::new();
+        let mut error = None;
+        for (idx, doc) in self.docs.iter().enumerate() {
+            match search::find_all(&doc.content, &query, &SearchOptions { search_down: true, ..opts.clone() }) {
+                Ok(ms) => {
+                    for m in ms {
+                        let line_text = doc.content.lines().nth(m.line.saturating_sub(1)).unwrap_or("").trim();
+                        hits.push(dialogs::FindHit {
+                            doc_index: idx,
+                            doc_title: doc.title.clone(),
+                            line: m.line,
+                            byte_start: m.start,
+                            byte_end: m.end,
+                            preview: line_text.chars().take(90).collect(),
+                        });
+                    }
+                }
+                Err(e) => {
+                    error = Some(e);
+                    break;
+                }
+            }
+        }
+        self.find_replace.status_message = Some(match error {
+            Some(e) => e,
+            None => format!("Find All: {} hit(s) in {} document(s)", hits.len(), self.docs.len()),
+        });
+        self.find_replace.results = hits;
+    }
+
+    pub fn jump_to_hit(&mut self, doc_index: usize, byte_start: usize, byte_end: usize) {
+        if doc_index >= self.docs.len() {
+            return;
+        }
+        self.active_index = doc_index;
+        let (cs, ce) = {
+            let d = &self.docs[doc_index];
+            (d.char_index_of_byte(byte_start), d.char_index_of_byte(byte_end))
+        };
+        self.select_chars(cs, ce);
+    }
+
+    /// Opens the find dialog, pre-filling the query from the current selection.
+    pub fn open_find(&mut self, tab: FindTab) {
+        if let Some(doc) = self.active_doc() {
+            if doc.selection_len > 0 && doc.selection_len < 200 {
+                let sel: String = doc.content.chars().skip(doc.cursor_char).take(doc.selection_len).collect();
+                if !sel.contains('\n') {
+                    self.find_replace.query = sel;
+                }
+            }
+        }
+        self.find_replace.is_open = true;
+        self.find_replace.tab = tab;
+        self.find_replace.focus_query = true;
+    }
+
+    pub fn zoom(&mut self, delta: f32) {
+        self.font_size = (self.font_size + delta).clamp(8.0, 40.0);
     }
 
     // --- Document Summary ---
@@ -426,78 +687,146 @@ impl RustNoteApp {
 
     // --- Global Hotkey processing ---
     fn handle_shortcuts(&mut self, ctx: &Context) {
-        let input = ctx.input(|i| i.clone());
+        use egui::{Key, KeyboardShortcut, Modifiers};
+        let cs = Modifiers::CTRL | Modifiers::SHIFT;
+        let ca = Modifiers::CTRL | Modifiers::ALT;
+        let hit = |m: Modifiers, k: Key| ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(m, k)));
 
-        if input.modifiers.ctrl {
-            if input.key_pressed(egui::Key::N) {
-                self.new_document();
-            } else if input.key_pressed(egui::Key::O) {
-                self.open_file_dialog();
-            } else if input.key_pressed(egui::Key::S) {
-                if input.modifiers.shift {
-                    self.save_all();
-                } else if input.modifiers.alt {
-                    self.save_as_current();
-                } else {
-                    self.save_current();
-                }
-            } else if input.key_pressed(egui::Key::W) {
-                if input.modifiers.shift {
-                    self.close_all();
-                } else {
-                    self.close_current();
-                }
-            } else if input.key_pressed(egui::Key::F) {
-                self.find_replace.is_open = true;
-                self.find_replace.tab = FindTab::Find;
-            } else if input.key_pressed(egui::Key::H) {
-                self.find_replace.is_open = true;
-                self.find_replace.tab = FindTab::Replace;
-            } else if input.key_pressed(egui::Key::G) {
-                let max_l = self.active_doc().map(|d| d.line_count()).unwrap_or(1);
-                self.goto_line.is_open = true;
-                self.goto_line.max_lines = max_l;
-            } else if input.key_pressed(egui::Key::D) {
-                // Duplicate line
-                if let Some(doc) = self.active_doc_mut() {
-                    let cur_line = doc.cursor_line;
-                    let dup = operations::duplicate_line(&doc.content, cur_line);
-                    doc.set_content(dup);
-                }
-            } else if input.key_pressed(egui::Key::Q) {
-                // Toggle comment
-                let prefix = self.current_language.comment_prefix();
-                if let Some(doc) = self.active_doc_mut() {
-                    let commented = operations::toggle_comment(&doc.content, prefix);
-                    doc.set_content(commented);
-                }
-            } else if input.key_pressed(egui::Key::J) {
-                // Join lines
-                if let Some(doc) = self.active_doc_mut() {
-                    let joined = operations::join_lines(&doc.content);
-                    doc.set_content(joined);
-                }
-            } else if input.key_pressed(egui::Key::Z) {
-                if let Some(doc) = self.active_doc_mut() {
-                    doc.undo();
-                }
-            } else if input.key_pressed(egui::Key::T) {
-                if input.modifiers.shift {
-                    self.restore_closed_document();
-                }
-            } else if input.key_pressed(egui::Key::L) {
-                if input.modifiers.alt {
-                    self.show_function_list = !self.show_function_list;
-                }
-            } else if input.key_pressed(egui::Key::Y) {
-                if let Some(doc) = self.active_doc_mut() {
-                    doc.redo();
-                }
+        if hit(cs, Key::S) {
+            self.save_all();
+        } else if hit(ca, Key::S) {
+            self.save_as_current();
+        } else if hit(Modifiers::CTRL, Key::S) {
+            self.save_current();
+        }
+        if hit(Modifiers::CTRL, Key::N) {
+            self.new_document();
+        }
+        if hit(Modifiers::CTRL, Key::O) {
+            self.open_file_dialog();
+        }
+        if hit(cs, Key::W) {
+            self.close_all();
+        } else if hit(Modifiers::CTRL, Key::W) {
+            self.close_current();
+        }
+        if hit(cs, Key::T) {
+            self.restore_closed_document();
+        }
+        if hit(Modifiers::CTRL, Key::F) {
+            self.open_find(FindTab::Find);
+        }
+        if hit(Modifiers::CTRL, Key::H) {
+            self.open_find(FindTab::Replace);
+        }
+        if hit(Modifiers::CTRL, Key::G) {
+            let max_l = self.active_doc().map(|d| d.line_count()).unwrap_or(1);
+            self.goto_line.is_open = true;
+            self.goto_line.max_lines = max_l;
+            self.goto_line.focus = true;
+        }
+        if hit(Modifiers::SHIFT, Key::F3) {
+            self.execute_find(false);
+        } else if hit(Modifiers::NONE, Key::F3) {
+            self.execute_find(true);
+        }
+        if hit(ca, Key::L) {
+            self.show_function_list = !self.show_function_list;
+        }
+        // Undo / redo operate on our own history (typing is recorded into it).
+        if hit(Modifiers::CTRL, Key::Z) {
+            if let Some(doc) = self.active_doc_mut() {
+                doc.undo();
             }
-        } else if input.key_pressed(egui::Key::F3) {
-            self.execute_find_next();
+        }
+        if hit(Modifiers::CTRL, Key::Y) || hit(cs, Key::Z) {
+            if let Some(doc) = self.active_doc_mut() {
+                doc.redo();
+            }
+        }
+        // Line / text operations
+        if hit(Modifiers::CTRL, Key::D) {
+            self.apply_op(|d| operations::duplicate_line(&d.content, d.cursor_line));
+        }
+        if hit(Modifiers::CTRL, Key::L) {
+            self.apply_op(|d| {
+                let mut lines: Vec<&str> = d.content.split('\n').collect();
+                let idx = d.cursor_line.saturating_sub(1);
+                if idx < lines.len() && lines.len() > 1 {
+                    lines.remove(idx);
+                } else if lines.len() == 1 {
+                    lines[0] = "";
+                }
+                lines.join("\n")
+            });
+        }
+        if hit(Modifiers::CTRL, Key::Q) {
+            let prefix = self.current_language.comment_prefix();
+            self.apply_op(move |d| operations::toggle_comment(&d.content, prefix));
+        }
+        if hit(Modifiers::CTRL, Key::J) {
+            self.apply_op(|d| operations::join_lines(&d.content));
+        }
+        if hit(cs, Key::U) {
+            self.apply_op(|d| operations::convert_case(&d.content, CaseMode::Uppercase));
+        } else if hit(Modifiers::CTRL, Key::U) {
+            self.apply_op(|d| operations::convert_case(&d.content, CaseMode::Lowercase));
+        }
+        if hit(cs, Key::ArrowUp) {
+            self.apply_op(|d| operations::move_line_up(&d.content, d.cursor_line));
+        }
+        if hit(cs, Key::ArrowDown) {
+            self.apply_op(|d| operations::move_line_down(&d.content, d.cursor_line));
+        }
+        // Zoom
+        if hit(Modifiers::CTRL, Key::Plus) || hit(Modifiers::CTRL, Key::Equals) {
+            self.zoom(1.0);
+        }
+        if hit(Modifiers::CTRL, Key::Minus) {
+            self.zoom(-1.0);
+        }
+        if hit(Modifiers::CTRL, Key::Num0) {
+            self.font_size = 14.0;
+        }
+        // Tab switching
+        if hit(Modifiers::CTRL, Key::PageDown) && !self.docs.is_empty() {
+            self.active_index = (self.active_index + 1) % self.docs.len();
+        }
+        if hit(Modifiers::CTRL, Key::PageUp) && !self.docs.is_empty() {
+            self.active_index = (self.active_index + self.docs.len() - 1) % self.docs.len();
+        }
+        let scroll = ctx.input(|i| (i.modifiers.ctrl, i.raw_scroll_delta.y));
+        if scroll.0 && scroll.1 != 0.0 {
+            self.zoom(scroll.1.signum());
         }
     }
+
+    /// Applies a whole-document transformation to the active document (unless read-only).
+    pub fn apply_op(&mut self, f: impl FnOnce(&Document) -> String) {
+        if let Some(doc) = self.active_doc_mut() {
+            if doc.is_readonly {
+                return;
+            }
+            let out = f(doc);
+            let keep = doc.cursor_char;
+            doc.set_content(out);
+            let len = doc.char_count();
+            doc.pending_selection = Some((keep.min(len), keep.min(len)));
+        }
+    }
+}
+
+/// Darkens pastel UI accents on the light theme so they stay readable.
+fn tc(light: bool, r: u8, g: u8, b: u8) -> Color32 {
+    if light {
+        Color32::from_rgb((f32::from(r) * 0.45) as u8, (f32::from(g) * 0.45) as u8, (f32::from(b) * 0.55) as u8)
+    } else {
+        Color32::from_rgb(r, g, b)
+    }
+}
+
+fn layout_font_id(size: f32) -> FontId {
+    FontId::monospace(size)
 }
 
 fn language_icon(lang: Option<Language>) -> &'static str {
@@ -521,12 +850,74 @@ fn language_icon(lang: Option<Language>) -> &'static str {
 
 impl eframe::App for RustNoteApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        if self.active_index >= self.docs.len() {
+            self.active_index = self.docs.len().saturating_sub(1);
+        }
+        // Language is per document
+        if let Some(l) = self.active_doc().map(|d| d.language.unwrap_or(Language::PlainText)) {
+            self.current_language = l;
+        }
+
+        let light = self.theme == EditorTheme::ClassicLight;
         self.handle_shortcuts(ctx);
+
+        // Drag & drop files to open them
+        let dropped: Vec<PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect());
+        for p in dropped {
+            self.open_path(p);
+        }
+
+        // Window title reflects the active document
+        let title = match self.active_doc() {
+            Some(d) => {
+                let full = d.path.as_ref().map_or_else(|| d.title.clone(), |p| p.display().to_string());
+                format!("{}{full} - rust-note", if d.is_dirty { "* " } else { "" })
+            }
+            None => "rust-note".to_string(),
+        };
+        if title != self.last_title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.last_title = title;
+        }
+
+        // Closing the window with unsaved documents: ask first
+        if ctx.input(|i| i.viewport().close_requested()) && !self.force_quit {
+            if self.any_dirty() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                let mut ok = true;
+                for i in 0..self.docs.len() {
+                    if !self.confirm_close(i) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if ok {
+                    self.force_quit = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            }
+        }
 
         // Clear expired notification
         if let Some((_, time)) = self.status_notification {
             if time.elapsed() > std::time::Duration::from_secs(4) {
                 self.status_notification = None;
+            }
+        }
+
+        // Persist settings / session when they change
+        {
+            let mut cur = self.settings.clone();
+            cur.dark_theme = self.theme == EditorTheme::DarkMode;
+            cur.font_size = self.font_size;
+            cur.word_wrap = self.word_wrap;
+            cur.show_line_numbers = self.show_line_numbers;
+            cur.show_function_list = self.show_function_list;
+            cur.session_files = self.docs.iter().filter_map(|d| d.path.clone()).collect();
+            if cur != self.saved_settings {
+                cur.save();
+                self.saved_settings = cur.clone();
+                self.settings = cur;
             }
         }
 
@@ -582,6 +973,23 @@ impl eframe::App for RustNoteApp {
                         ui.close();
                     }
                     ui.separator();
+                    ui.add_enabled_ui(!self.settings.recent_files.is_empty(), |ui| {
+                        ui.menu_button("Recent Files", |ui| {
+                            let recents = self.settings.recent_files.clone();
+                            for (n, path) in recents.iter().enumerate() {
+                                let name = path.file_name().map_or_else(|| path.display().to_string(), |f| f.to_string_lossy().to_string());
+                                if ui.button(format!("{}  {name}", n + 1)).on_hover_text(path.display().to_string()).clicked() {
+                                    self.open_path(path.clone());
+                                    ui.close();
+                                }
+                            }
+                            ui.separator();
+                            if ui.button("Clear Recent Files").clicked() {
+                                self.settings.recent_files.clear();
+                                ui.close();
+                            }
+                        });
+                    });
                     ui.menu_button("Copy to Clipboard", |ui| {
                         if ui.button("Copy Full File Path").clicked() {
                             self.copy_full_path(ctx);
@@ -599,6 +1007,7 @@ impl eframe::App for RustNoteApp {
                     ui.separator();
                     if ui.button("Exit\tAlt+F4").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        ui.close();
                     }
                 });
 
@@ -827,7 +1236,11 @@ impl eframe::App for RustNoteApp {
                         ui.close();
                     }
                     if ui.button("Find Next\tF3").clicked() {
-                        self.execute_find_next();
+                        self.execute_find(true);
+                        ui.close();
+                    }
+                    if ui.button("Find Previous\tShift+F3").clicked() {
+                        self.execute_find(false);
                         ui.close();
                     }
                     if ui.button("Go to Line...\tCtrl+G").clicked() {
@@ -1206,11 +1619,11 @@ impl eframe::App for RustNoteApp {
                                 let label_text = format!("{icon} {}{dirty_dot}", doc.title);
 
                                 let text_color = if is_active {
-                                    Color32::from_rgb(137, 180, 250) // Soft Accent Blue
+                                    tc(light, 137, 180, 250) // Soft Accent Blue
                                 } else if doc.is_dirty {
-                                    Color32::from_rgb(250, 179, 135) // Amber
+                                    tc(light, 250, 179, 135) // Amber
                                 } else {
-                                    Color32::from_rgb(186, 194, 222) // Soft Text
+                                    tc(light, 186, 194, 222) // Soft Text
                                 };
 
                                 ui.horizontal(|ui| {
@@ -1220,6 +1633,9 @@ impl eframe::App for RustNoteApp {
                                     );
                                     if tab_btn.clicked() {
                                         self.active_index = idx;
+                                    }
+                                    if tab_btn.middle_clicked() {
+                                        to_close = Some(idx);
                                     }
 
                                     tab_btn.context_menu(|ui| {
@@ -1265,33 +1681,11 @@ impl eframe::App for RustNoteApp {
                             }
 
                             if let Some(keep_idx) = close_others {
-                                if keep_idx < self.docs.len() {
-                                    let current = self.docs.remove(keep_idx);
-                                    self.docs.clear();
-                                    self.docs.push(current);
-                                    self.active_index = 0;
-                                    self.set_notification("Closed other tabs");
-                                }
+                                self.close_all_except(keep_idx);
                             }
 
                             if let Some(idx) = to_close {
-                                if let Some(doc) = self.docs.get(idx) {
-                                    if doc.path.is_some() || !doc.content.is_empty() {
-                                        if self.closed_docs.len() >= 25 {
-                                            self.closed_docs.remove(0);
-                                        }
-                                        self.closed_docs.push(doc.clone());
-                                    }
-                                }
-
-                                if self.docs.len() > 1 {
-                                    self.docs.remove(idx);
-                                    if self.active_index >= self.docs.len() {
-                                        self.active_index = self.docs.len() - 1;
-                                    }
-                                } else {
-                                    self.docs[0] = Document::new_empty(Some("new 1"));
-                                }
+                                self.close_at(idx);
                             }
 
                             if ui.button("+").on_hover_text("New tab (Ctrl+N)").clicked() {
@@ -1315,34 +1709,42 @@ impl eframe::App for RustNoteApp {
                     ui.label(
                         RichText::new(format!("Ln {}, Col {}", doc.cursor_line, doc.cursor_col))
                             .strong()
-                            .color(Color32::from_rgb(250, 179, 135)),
+                            .color(tc(light, 250, 179, 135)),
                     );
+                    if doc.selection_len > 0 {
+                        ui.separator();
+                        ui.label(
+                            RichText::new(format!("Sel: {}", doc.selection_len))
+                                .strong()
+                                .color(tc(light, 245, 194, 231)),
+                        );
+                    }
                     ui.separator();
                     ui.label(
                         RichText::new(format!("📊 {chars} chars | {lines} lines | {bytes} B"))
-                            .color(Color32::from_rgb(166, 173, 200)),
+                            .color(tc(light, 166, 173, 200)),
                     );
                     ui.separator();
-                    ui.label(RichText::new(eol).color(Color32::from_rgb(147, 153, 178)));
+                    ui.label(RichText::new(eol).color(tc(light, 147, 153, 178)));
                     ui.separator();
-                    ui.label(RichText::new(enc).strong().color(Color32::from_rgb(203, 166, 247)));
+                    ui.label(RichText::new(enc).strong().color(tc(light, 203, 166, 247)));
                     ui.separator();
                     ui.label(
                         RichText::new(format!("{icon} {}", self.current_language.name()))
                             .strong()
-                            .color(Color32::from_rgb(137, 220, 235)),
+                            .color(tc(light, 137, 220, 235)),
                     );
                     ui.separator();
                     if doc.is_readonly {
-                        ui.label(RichText::new("🔒 READ ONLY").strong().color(Color32::from_rgb(243, 139, 168)));
+                        ui.label(RichText::new("🔒 READ ONLY").strong().color(tc(light, 243, 139, 168)));
                     } else {
-                        ui.label(RichText::new("✏ INS").strong().color(Color32::from_rgb(166, 227, 161)));
+                        ui.label(RichText::new("✏ INS").strong().color(tc(light, 166, 227, 161)));
                     }
                 }
 
                 if let Some((ref msg, _)) = self.status_notification {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(RichText::new(format!("🔔 {msg}")).strong().color(Color32::from_rgb(250, 179, 135)));
+                        ui.label(RichText::new(format!("🔔 {msg}")).strong().color(tc(light, 250, 179, 135)));
                     });
                 }
             });
@@ -1385,7 +1787,7 @@ impl eframe::App for RustNoteApp {
 
                         ui.label(
                             RichText::new(format!("Symbols: {}", filtered.len()))
-                                .color(Color32::from_rgb(166, 173, 200)),
+                                .color(tc(light, 166, 173, 200)),
                         );
                         ui.separator();
 
@@ -1394,10 +1796,10 @@ impl eframe::App for RustNoteApp {
                             .show(ui, |ui| {
                                 for sym in filtered {
                                     let color = match sym.kind {
-                                        crate::syntax::SymbolKind::Function => Color32::from_rgb(137, 220, 235),
-                                        crate::syntax::SymbolKind::StructOrClass => Color32::from_rgb(166, 227, 161),
-                                        crate::syntax::SymbolKind::InterfaceOrTrait => Color32::from_rgb(203, 166, 247),
-                                        crate::syntax::SymbolKind::Enum => Color32::from_rgb(250, 179, 135),
+                                        crate::syntax::SymbolKind::Function => tc(light, 137, 220, 235),
+                                        crate::syntax::SymbolKind::StructOrClass => tc(light, 166, 227, 161),
+                                        crate::syntax::SymbolKind::InterfaceOrTrait => tc(light, 203, 166, 247),
+                                        crate::syntax::SymbolKind::Enum => tc(light, 250, 179, 135),
                                     };
 
                                     let label = RichText::new(format!("{} {}", sym.kind.icon(), sym.name)).color(color);
@@ -1426,6 +1828,8 @@ impl eframe::App for RustNoteApp {
             let current_lang = self.current_language;
             let show_line_nums = self.show_line_numbers;
             let word_wrap = self.word_wrap;
+            let find_open = self.find_replace.is_open;
+            let font_size = self.font_size;
 
             ui.allocate_ui_with_layout(
                 available_size,
@@ -1433,43 +1837,24 @@ impl eframe::App for RustNoteApp {
                 |ui| {
                     ui.set_min_height(available_size.y);
 
+                    let dark = self.theme == EditorTheme::DarkMode;
                     let doc = &mut self.docs[active_idx];
+                    let pal = if dark { Palette::DARK } else { Palette::LIGHT };
+                    let doc_lang = doc.language.unwrap_or(Language::PlainText);
 
-                    // Line numbers gutter
-                    if show_line_nums {
+                    // Line numbers gutter (painted after the editor so it lines up with wrapped rows)
+                    let gutter_rect = if show_line_nums {
                         let total_lines = doc.line_count();
-                        let gutter_text: String = (1..=total_lines)
-                            .map(|n| format!("{n}\n"))
-                            .collect();
-
                         let max_digits = total_lines.to_string().len().max(2);
-                        let char_approx_width = font.size * 0.62;
-                        let gutter_width = (max_digits as f32 * char_approx_width) + 24.0;
-
-                        ui.allocate_ui_with_layout(
+                        let gutter_width = (max_digits as f32 * font.size * 0.62) + 20.0;
+                        let (rect, _) = ui.allocate_exact_size(
                             egui::Vec2::new(gutter_width, available_size.y),
-                            egui::Layout::top_down(egui::Align::Min),
-                            |ui| {
-                                ScrollArea::vertical()
-                                    .id_salt("gutter_scroll")
-                                    .auto_shrink([false, false])
-                                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                                    .vertical_scroll_offset(doc.scroll_offset)
-                                    .show(ui, |ui| {
-                                        ui.add(
-                                            egui::Label::new(
-                                                RichText::new(gutter_text)
-                                                    .font(font.clone())
-                                                    .color(Color32::from_rgb(110, 110, 110)),
-                                            )
-                                            .selectable(false),
-                                        );
-                                    });
-                            },
+                            egui::Sense::hover(),
                         );
-
-                        ui.separator();
-                    }
+                        Some(rect)
+                    } else {
+                        None
+                    };
 
                     // Editor Text Area (Takes all remaining width and 100% full height)
                     let editor_avail_size = ui.available_size();
@@ -1480,31 +1865,129 @@ impl eframe::App for RustNoteApp {
                         Some(egui::TextWrapMode::Extend)
                     };
 
-                    let scroll_output = ScrollArea::both()
+                    let editor_id = egui::Id::new(("editor", doc.id));
+                    let pending = doc.pending_selection.take();
+                    if let Some((a, b)) = pending {
+                        let mut state = egui::text_edit::TextEditState::load(ui.ctx(), editor_id).unwrap_or_default();
+                        state.cursor.set_char_range(Some(egui::text::CCursorRange::two(
+                            egui::text::CCursor::new(a),
+                            egui::text::CCursor::new(b),
+                        )));
+                        state.store(ui.ctx(), editor_id);
+                        if !find_open {
+                            ui.ctx().memory_mut(|m| m.request_focus(editor_id));
+                        }
+                    }
+
+                    // Auto-indent: Enter keeps the indentation of the current line (+4 after an opening brace)
+                    let enter_pressed = !doc.is_readonly
+                        && ui.ctx().memory(|m| m.has_focus(editor_id))
+                        && ui.ctx().input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter));
+                    if enter_pressed {
+                        let mut state = egui::text_edit::TextEditState::load(ui.ctx(), editor_id).unwrap_or_default();
+                        if let Some(range) = state.cursor.char_range() {
+                            let (a, b) = (range.primary.index.min(range.secondary.index), range.primary.index.max(range.secondary.index));
+                            let chars: Vec<char> = doc.content.chars().collect();
+                            let a = a.min(chars.len());
+                            let b = b.min(chars.len());
+                            let line_start = chars[..a].iter().rposition(|c| *c == '\n').map_or(0, |p| p + 1);
+                            let mut insert = String::from("\n");
+                            insert.extend(chars[line_start..a].iter().take_while(|c| **c == ' ' || **c == '\t'));
+                            if a > 0 && matches!(chars[a - 1], '{' | '(' | '[' | ':') {
+                                insert.push_str("    ");
+                            }
+                            let mut out: String = chars[..a].iter().collect();
+                            out.push_str(&insert);
+                            out.extend(chars[b..].iter());
+                            doc.content = out;
+                            doc.record_typing();
+                            let pos = a + insert.chars().count();
+                            state.cursor.set_char_range(Some(egui::text::CCursorRange::two(
+                                egui::text::CCursor::new(pos),
+                                egui::text::CCursor::new(pos),
+                            )));
+                            state.store(ui.ctx(), editor_id);
+                        }
+                    }
+
+                    let mut gutter_numbers: Vec<(f32, usize)> = Vec::new();
+                    let scroll_area = if word_wrap { ScrollArea::vertical() } else { ScrollArea::both() };
+                    let scroll_output = scroll_area
                         .id_salt("editor_scroll")
                         .auto_shrink([false, false])
                         .min_scrolled_height(editor_avail_size.y)
                         .min_scrolled_width(editor_avail_size.x)
                         .show(ui, |ui| {
-                            let text_edit = egui::TextEdit::multiline(&mut doc.content)
+                            let layout_font = font.clone();
+                            let mut layouter = |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
+                                let job = syntax_highlight(
+                                    text.as_str(),
+                                    doc_lang,
+                                    &layout_font,
+                                    pal,
+                                    if word_wrap { wrap_width } else { f32::INFINITY },
+                                );
+                                ui.fonts_mut(|f| f.layout_job(job))
+                            };
+                            let output = egui::TextEdit::multiline(&mut doc.content)
+                                .id(editor_id)
                                 .font(font)
+                                .text_color(pal.text)
                                 .desired_width(f32::INFINITY)
                                 .min_size(egui::Vec2::new(editor_avail_size.x, editor_avail_size.y))
                                 .frame(false)
-                                .lock_focus(true);
-
-                            let response = ui.add(text_edit);
+                                .interactive(!doc.is_readonly)
+                                .layouter(&mut layouter)
+                                .lock_focus(true)
+                                .show(ui);
+                            let response = output.response.clone();
 
                             if response.changed() {
-                                doc.is_dirty = true;
+                                doc.record_typing();
                             }
 
                             // Synchronize cursor position (Ln / Col) from text selection state
-                            if let Some(state) = egui::text_edit::TextEdit::load_state(ui.ctx(), response.id) {
-                                if let Some(range) = state.cursor.char_range() {
-                                    let (line, col) = doc.line_col_from_char_index(range.primary.index);
-                                    doc.cursor_line = line;
-                                    doc.cursor_col = col;
+                            let cursor_range = output.state.cursor.char_range();
+                            if let Some(range) = cursor_range {
+                                let (line, col) = doc.line_col_from_char_index(range.primary.index);
+                                doc.cursor_line = line;
+                                doc.cursor_col = col;
+                                doc.cursor_char = range.primary.index.min(range.secondary.index);
+                                doc.selection_len = range.primary.index.abs_diff(range.secondary.index);
+                            }
+
+                            let galley_pos = output.galley_pos;
+                            // Current-line highlight and scroll-to-cursor after a programmatic jump
+                            if let Some(range) = cursor_range {
+                                let crect = output.galley.pos_from_cursor(range.primary).translate(galley_pos.to_vec2());
+                                if range.primary == range.secondary {
+                                    let line_rect = egui::Rect::from_min_max(
+                                        egui::pos2(ui.clip_rect().left(), crect.top()),
+                                        egui::pos2(ui.clip_rect().right(), crect.bottom()),
+                                    );
+                                    ui.painter().rect_filled(
+                                        line_rect,
+                                        0.0,
+                                        Color32::from_rgba_unmultiplied(128, 128, 160, 18),
+                                    );
+                                }
+                                if pending.is_some() || enter_pressed {
+                                    ui.scroll_to_rect(crect.expand2(egui::vec2(0.0, 40.0)), Some(if pending.is_some() { egui::Align::Center } else { egui::Align::Max }));
+                                }
+                            }
+
+                            if gutter_rect.is_some() {
+                                let mut line_no = 1usize;
+                                let mut new_line = true;
+                                for placed in &output.galley.rows {
+                                    if new_line {
+                                        gutter_numbers.push((galley_pos.y + placed.pos.y, line_no));
+                                        line_no += 1;
+                                        new_line = false;
+                                    }
+                                    if placed.row.ends_with_newline {
+                                        new_line = true;
+                                    }
                                 }
                             }
 
@@ -1629,6 +2112,23 @@ impl eframe::App for RustNoteApp {
 
                     // Sync vertical scroll offset for gutter and persistence
                     doc.scroll_offset = scroll_output.state.offset.y;
+                    if let Some(rect) = gutter_rect {
+                        let painter = ui.painter().with_clip_rect(rect);
+                        for (y, n) in gutter_numbers {
+                            let color = if n == doc.cursor_line {
+                                Color32::from_rgb(250, 179, 135)
+                            } else {
+                                Color32::from_rgb(110, 115, 140)
+                            };
+                            painter.text(
+                                egui::pos2(rect.right() - 8.0, y),
+                                egui::Align2::RIGHT_TOP,
+                                n.to_string(),
+                                layout_font_id(font_size),
+                                color,
+                            );
+                        }
+                    }
                 },
             );
         });

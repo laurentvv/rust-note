@@ -29,6 +29,15 @@ pub struct Document {
     pub scroll_offset: f32,
     pub language: Option<crate::syntax::Language>,
     pub history: History,
+    /// Cursor position as a char index (kept in sync with the editor widget).
+    pub cursor_char: usize,
+    /// Selection length in chars.
+    pub selection_len: usize,
+    /// One-shot request to move the editor cursor/selection (start, end) in chars.
+    pub pending_selection: Option<(usize, usize)>,
+    /// Content as of the last recorded edit, used for undo grouping.
+    pub snapshot: String,
+    pub last_edit: Option<std::time::Instant>,
 }
 
 impl Document {
@@ -54,6 +63,11 @@ impl Document {
             scroll_offset: 0.0,
             language: None,
             history: History::default(),
+            cursor_char: 0,
+            selection_len: 0,
+            pending_selection: None,
+            snapshot: String::new(),
+            last_edit: None,
         }
     }
 
@@ -77,6 +91,7 @@ impl Document {
             id,
             title,
             path: Some(path_ref.to_path_buf()),
+            snapshot: content.clone(),
             content,
             encoding: enc,
             eol,
@@ -88,6 +103,10 @@ impl Document {
             scroll_offset: 0.0,
             language,
             history: History::default(),
+            cursor_char: 0,
+            selection_len: 0,
+            pending_selection: None,
+            last_edit: None,
         })
     }
 
@@ -123,6 +142,7 @@ impl Document {
         if self.content != new_content {
             self.history.push(self.content.clone());
             self.content = new_content;
+            self.snapshot = self.content.clone();
             self.is_dirty = true;
         }
     }
@@ -131,6 +151,7 @@ impl Document {
     pub fn undo(&mut self) -> bool {
         if let Some(prev) = self.history.undo(self.content.clone()) {
             self.content = prev;
+            self.snapshot = self.content.clone();
             self.is_dirty = true;
             true
         } else {
@@ -142,11 +163,50 @@ impl Document {
     pub fn redo(&mut self) -> bool {
         if let Some(next) = self.history.redo(self.content.clone()) {
             self.content = next;
+            self.snapshot = self.content.clone();
             self.is_dirty = true;
             true
         } else {
             false
         }
+    }
+
+    /// Called after the editor widget changed `content` (typing): groups keystrokes into undo steps.
+    pub fn record_typing(&mut self) {
+        let now = std::time::Instant::now();
+        let expired = self
+            .last_edit
+            .is_none_or(|t| now.duration_since(t) > std::time::Duration::from_millis(900));
+        if expired {
+            self.history.push(self.snapshot.clone());
+        }
+        self.snapshot = self.content.clone();
+        self.last_edit = Some(now);
+        self.is_dirty = true;
+    }
+
+    /// Converts a 1-based line number to the char index of its first char.
+    #[must_use]
+    pub fn char_index_of_line(&self, line: usize) -> usize {
+        let mut cur = 1;
+        if line <= 1 {
+            return 0;
+        }
+        for (i, ch) in self.content.chars().enumerate() {
+            if ch == '\n' {
+                cur += 1;
+                if cur == line {
+                    return i + 1;
+                }
+            }
+        }
+        self.char_count()
+    }
+
+    /// Converts a byte offset into a char index.
+    #[must_use]
+    pub fn char_index_of_byte(&self, byte: usize) -> usize {
+        self.content[..byte.min(self.content.len())].chars().count()
     }
 
     /// Total lines in document.
@@ -155,7 +215,7 @@ impl Document {
         if self.content.is_empty() {
             1
         } else {
-            self.content.lines().count().max(1)
+            self.content.bytes().filter(|b| *b == b'\n').count() + 1
         }
     }
 

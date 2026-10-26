@@ -92,6 +92,54 @@ pub fn find_all(text: &str, query: &str, options: &SearchOptions) -> Result<Vec<
     Ok(matches)
 }
 
+/// Finds the next/previous match starting at byte offset `from` (wrapping around).
+/// Returns `(start, end, wrapped)` in byte offsets.
+pub fn find_from(
+    text: &str,
+    query: &str,
+    options: &SearchOptions,
+    from: usize,
+    forward: bool,
+) -> Result<Option<(usize, usize, bool)>, String> {
+    let re = build_regex(query, options)?;
+    let from = from.min(text.len());
+    if forward {
+        let from = (from..=text.len()).find(|i| text.is_char_boundary(*i)).unwrap_or(text.len());
+        if let Some(m) = re.find_at(text, from) {
+            return Ok(Some((m.start(), m.end(), false)));
+        }
+        return Ok(re.find(text).map(|m| (m.start(), m.end(), true)));
+    }
+    let mut last_before: Option<(usize, usize)> = None;
+    let mut last_any: Option<(usize, usize)> = None;
+    for m in re.find_iter(text) {
+        last_any = Some((m.start(), m.end()));
+        if m.end() <= from {
+            last_before = Some((m.start(), m.end()));
+        } else {
+            break;
+        }
+    }
+    Ok(match (last_before, last_any) {
+        (Some((s, e)), _) => Some((s, e, false)),
+        (None, Some(_)) => {
+            let m = re.find_iter(text).last().map(|m| (m.start(), m.end()));
+            m.map(|(s, e)| (s, e, true))
+        }
+        _ => None,
+    })
+}
+
+/// Expands a replacement for a single match (supports `$1` groups in regex mode).
+pub fn replacement_for(matched: &str, query: &str, replacement: &str, options: &SearchOptions) -> String {
+    if options.use_regex {
+        if let Ok(re) = build_regex(query, options) {
+            return re.replace(matched, replacement).to_string();
+        }
+    }
+    replacement.to_string()
+}
+
 /// Replaces all occurrences of query with replacement string.
 pub fn replace_all(
     text: &str,
@@ -151,5 +199,22 @@ mod tests {
 
         let matches = find_all(text, r"Version (\d+\.\d+\.\d+)", &opts).unwrap();
         assert_eq!(matches.len(), 2);
+    }
+
+    #[test]
+    fn test_find_from_wraps_and_goes_backwards() {
+        let text = "a1 b a2 b a3";
+        let opts = SearchOptions::default();
+        let (s, _, wrapped) = find_from(text, "b", &opts, 0, true).unwrap().unwrap();
+        assert_eq!((s, wrapped), (3, false));
+        let (s, _, wrapped) = find_from(text, "b", &opts, 8, true).unwrap().unwrap();
+        assert_eq!((s, wrapped), (8, false));
+        let (s, _, wrapped) = find_from(text, "b", &opts, 11, true).unwrap().unwrap();
+        assert_eq!((s, wrapped), (3, true));
+        let (s, _, wrapped) = find_from(text, "b", &opts, 8, false).unwrap().unwrap();
+        assert_eq!((s, wrapped), (3, false));
+        let (s, _, wrapped) = find_from(text, "b", &opts, 0, false).unwrap().unwrap();
+        assert_eq!((s, wrapped), (8, true));
+        assert!(find_from(text, "zzz", &opts, 0, true).unwrap().is_none());
     }
 }
