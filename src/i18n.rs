@@ -433,4 +433,19 @@ mod tests {
         set_lang(UiLang::English);
         assert!(untranslated.is_empty(), "untranslated messages: {untranslated:#?}");
     }
+
+    /// Exhaustive guard: every tooltip created in the UI code goes through `tr(...)`
+    /// (the only exception is a tooltip that shows a file path, which is data, not text).
+    #[test]
+    fn every_tooltip_is_routed_through_tr() {
+        let mut offenders = Vec::new();
+        for (name, src) in [("app.rs", include_str!("app.rs")), ("dialogs.rs", include_str!("ui/dialogs.rs"))] {
+            for (n, line) in src.lines().enumerate() {
+                if line.contains(".on_hover_text(") && !line.contains("tr(") && !line.contains("path.display()") {
+                    offenders.push(format!("{name}:{}: {}", n + 1, line.trim()));
+                }
+            }
+        }
+        assert!(offenders.is_empty(), "tooltips not translated: {offenders:#?}");
+    }
 }
