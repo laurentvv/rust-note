@@ -38,6 +38,15 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
         let line_num = zero_idx + 1;
         let trimmed = line.trim();
 
+        if lang == Language::Markdown {
+            let level = trimmed.chars().take_while(|c| *c == '#').count();
+            if level > 0 && level <= 6 && trimmed[level..].starts_with(' ') {
+                let name = trimmed[level..].trim().to_string();
+                symbols.push(DocumentSymbol { name, kind: if level == 1 { SymbolKind::StructOrClass } else { SymbolKind::Function }, line: line_num });
+            }
+            continue;
+        }
+
         // Skip comments and empty lines
         if trimmed.is_empty()
             || trimmed.starts_with("//")
@@ -122,14 +131,69 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                 }
             }
             _ => {
-                // Generic heuristic for C/C++/Java/C#/PHP/Ruby/Lua
-                if let Some(rest) = trimmed.strip_prefix("def ").or_else(|| trimmed.strip_prefix("function ")) {
-                    if let Some(name) = extract_identifier_before(rest, '(') {
+                // Generic heuristic for the remaining languages (C-family, Ruby, Lua, PHP, shell, SQL...)
+                const MODS: [&str; 18] = [
+                    "public ", "private ", "protected ", "internal ", "static ", "async ", "export ",
+                    "default ", "final ", "abstract ", "override ", "open ", "sealed ", "local ",
+                    "extern ", "virtual ", "inline ", "partial ",
+                ];
+                let mut t = trimmed;
+                while let Some(rest) = MODS.iter().find_map(|m| t.strip_prefix(m)) {
+                    t = rest.trim_start();
+                }
+                let func_kw = ["def ", "function ", "func ", "fun ", "sub ", "fn ", "proc "];
+                let class_kw = ["class ", "module ", "object ", "struct ", "record ", "namespace "];
+                let iface_kw = ["interface ", "trait ", "protocol "];
+                if let Some(rest) = func_kw.iter().find_map(|k| t.strip_prefix(k)) {
+                    let name = if rest.contains('(') { extract_identifier_before(rest, '(') } else { extract_first_word(rest) };
+                    if let Some(name) = name {
                         symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
                     }
-                } else if let Some(rest) = trimmed.strip_prefix("class ") {
+                } else if let Some(rest) = class_kw.iter().find_map(|k| t.strip_prefix(k)) {
                     if let Some(name) = extract_first_word(rest) {
                         symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                    }
+                } else if let Some(rest) = iface_kw.iter().find_map(|k| t.strip_prefix(k)) {
+                    if let Some(name) = extract_first_word(rest) {
+                        symbols.push(DocumentSymbol { name, kind: SymbolKind::InterfaceOrTrait, line: line_num });
+                    }
+                } else if let Some(rest) = t.strip_prefix("enum ") {
+                    if let Some(name) = extract_first_word(rest) {
+                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Enum, line: line_num });
+                    }
+                } else if matches!(lang, Language::Sql) {
+                    let upper = t.to_uppercase();
+                    for (kw, kind) in [
+                        ("CREATE TABLE ", SymbolKind::StructOrClass),
+                        ("CREATE VIEW ", SymbolKind::StructOrClass),
+                        ("CREATE FUNCTION ", SymbolKind::Function),
+                        ("CREATE PROCEDURE ", SymbolKind::Function),
+                    ] {
+                        if upper.starts_with(kw) {
+                            let rest = &t[kw.len()..];
+                            let rest = rest.strip_prefix("IF NOT EXISTS ").unwrap_or(rest);
+                            if let Some(name) = rest.split(|c: char| c == '(' || c.is_whitespace()).next().filter(|n| !n.is_empty()) {
+                                symbols.push(DocumentSymbol { name: name.trim_matches(|c| c == '[' || c == ']' || c == '`' || c == '"').to_string(), kind, line: line_num });
+                            }
+                            break;
+                        }
+                    }
+                } else if matches!(lang, Language::Shell | Language::PowerShell) {
+                    if let Some(idx) = t.find("()") {
+                        let name = t[..idx].trim();
+                        if !name.is_empty() && !name.contains(' ') {
+                            symbols.push(DocumentSymbol { name: name.to_string(), kind: SymbolKind::Function, line: line_num });
+                        }
+                    }
+                } else if matches!(lang, Language::C | Language::Cpp | Language::Cs | Language::Java | Language::Kotlin | Language::Swift | Language::Dart | Language::Php)
+                    && !line.starts_with([' ', '\t'])
+                    && t.contains('(')
+                    && (t.ends_with(')') || t.ends_with('{'))
+                    && !t.ends_with(';')
+                    && !["if", "for", "while", "switch", "return", "else", "do", "catch"].iter().any(|k| t.starts_with(k))
+                {
+                    if let Some(name) = extract_identifier_before(t, '(') {
+                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
                     }
                 }
             }
@@ -205,5 +269,19 @@ def main():
         assert_eq!(symbols[0].name, "DocumentParser");
         assert_eq!(symbols[1].name, "parse_file");
         assert_eq!(symbols[2].name, "main");
+    }
+
+    #[test]
+    fn test_generic_symbols() {
+        let rb = "class Foo\n  def bar(x)\n  end\nend\n";
+        let syms = extract_symbols(rb, Language::Ruby);
+        assert_eq!(syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), vec!["Foo", "bar"]);
+        let c = "int main(int argc, char **argv) {\n  if (x) {\n  }\n}\nstatic void helper(void)\n{\n}\n";
+        let syms = extract_symbols(c, Language::C);
+        assert_eq!(syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), vec!["main", "helper"]);
+        let md = "# Title\n## Part\ntext\n";
+        assert_eq!(extract_symbols(md, Language::Markdown).len(), 2);
+        let sql = "CREATE TABLE users (id int);\n";
+        assert_eq!(extract_symbols(sql, Language::Sql)[0].name, "users");
     }
 }

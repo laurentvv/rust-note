@@ -175,7 +175,12 @@ pub fn highlight(text: &str, lang: Language, font: &FontId, pal: Palette, wrap_w
             } else {
                 keywords.contains(&word)
             };
-            let is_type = !is_kw && word.len() > 1 && word.as_bytes()[0].is_ascii_uppercase()
+            let types_ok = !matches!(
+                lang,
+                Language::Markdown | Language::Html | Language::Xml | Language::Ini | Language::Diff
+                    | Language::Json | Language::Yaml | Language::Toml | Language::Css
+            );
+            let is_type = types_ok && !is_kw && word.len() > 1 && word.as_bytes()[0].is_ascii_uppercase()
                 && word.bytes().any(|c| c.is_ascii_lowercase());
             if is_kw || is_type {
                 flush!(i);

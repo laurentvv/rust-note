@@ -24,6 +24,8 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - Keyboard and mouse selection: `Shift`+arrows, `Ctrl+Shift`+arrows (word), `Shift`+click, double-click (word), triple-click (line), `Ctrl+A`.
 - Zoom with `Ctrl`+mouse wheel, `Ctrl`+`+` / `-` / `0`.
 - Confirmation prompt before closing modified documents, also on window close.
+- **English / French interface** (View > Interface language), using familiar Notepad++ French terminology.
+- Function List for Rust, Python, JS/TS, Go, C-family, Ruby, Lua, PHP, shell, SQL tables and Markdown headings.
 - Session restore (reopens last files), recent files list, persistent settings (theme, zoom, wrap, gutter).
 
 ### Search

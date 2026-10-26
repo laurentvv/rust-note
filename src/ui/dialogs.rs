@@ -1,5 +1,6 @@
 //! Dialog windows: Find & Replace, Go To Line, About, Document Summary.
 
+use crate::i18n::tr;
 use crate::search::SearchOptions;
 use eframe::egui::{self, Context, Window};
 
@@ -99,22 +100,22 @@ pub fn render_find_replace(
     let mut close_clicked = false;
 
     let screen = ctx.content_rect();
-    Window::new("Find / Replace")
+    Window::new(tr("Find / Replace"))
         .open(&mut is_open)
         .default_pos(egui::pos2((screen.right() - 520.0).max(10.0), screen.top() + 90.0))
         .resizable(true)
         .default_size([480.0, 300.0])
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut state.tab, FindTab::Find, "Find");
-                ui.selectable_value(&mut state.tab, FindTab::Replace, "Replace");
-                ui.selectable_value(&mut state.tab, FindTab::FindAll, "Find in Open Documents");
+                ui.selectable_value(&mut state.tab, FindTab::Find, tr("Find"));
+                ui.selectable_value(&mut state.tab, FindTab::Replace, tr("Replace"));
+                ui.selectable_value(&mut state.tab, FindTab::FindAll, tr("Find in Open Documents"));
             });
             ui.separator();
 
             let mut enter_pressed = false;
             egui::Grid::new("find_grid").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
-                ui.label("Find what:");
+                ui.label(tr("Find what:"));
                 let r = ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(300.0));
                 if state.focus_query {
                     r.request_focus();
@@ -126,7 +127,7 @@ pub fn render_find_replace(
                 }
                 ui.end_row();
                 if state.tab == FindTab::Replace {
-                    ui.label("Replace with:");
+                    ui.label(tr("Replace with:"));
                     ui.add(egui::TextEdit::singleline(&mut state.replacement).desired_width(300.0));
                     ui.end_row();
                 }
@@ -135,14 +136,14 @@ pub fn render_find_replace(
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    ui.checkbox(&mut state.options.match_case, "Match case");
-                    ui.checkbox(&mut state.options.whole_word, "Match whole word only");
-                    ui.checkbox(&mut state.options.use_regex, "Regular expression");
+                    ui.checkbox(&mut state.options.match_case, tr("Match case"));
+                    ui.checkbox(&mut state.options.whole_word, tr("Match whole word only"));
+                    ui.checkbox(&mut state.options.use_regex, tr("Regular expression"));
                 });
                 ui.add_space(24.0);
                 ui.vertical(|ui| {
-                    ui.radio_value(&mut state.options.search_down, true, "Down");
-                    ui.radio_value(&mut state.options.search_down, false, "Up");
+                    ui.radio_value(&mut state.options.search_down, true, tr("Down"));
+                    ui.radio_value(&mut state.options.search_down, false, tr("Up"));
                 });
             });
 
@@ -150,29 +151,29 @@ pub fn render_find_replace(
             ui.separator();
 
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Find Next").clicked() || (enter_pressed && state.tab != FindTab::FindAll) {
+                if ui.button(tr("Find Next")).clicked() || (enter_pressed && state.tab != FindTab::FindAll) {
                     action = DialogAction::FindNext;
                 }
-                if ui.button("Find Previous").clicked() {
+                if ui.button(tr("Find Previous")).clicked() {
                     action = DialogAction::FindPrev;
                 }
-                if ui.button("Count").clicked() {
+                if ui.button(tr("Count")).clicked() {
                     action = DialogAction::Count;
                 }
                 if state.tab == FindTab::Replace {
-                    if ui.button("Replace").clicked() {
+                    if ui.button(tr("Replace")).clicked() {
                         action = DialogAction::ReplaceOne;
                     }
-                    if ui.button("Replace All").clicked() {
+                    if ui.button(tr("Replace All")).clicked() {
                         action = DialogAction::ReplaceAll;
                     }
                 }
                 if state.tab == FindTab::FindAll
-                    && (ui.button("Find All").clicked() || enter_pressed)
+                    && (ui.button(tr("Find All")).clicked() || enter_pressed)
                 {
                     action = DialogAction::FindAllOpen;
                 }
-                if ui.button("Close").clicked() {
+                if ui.button(tr("Close")).clicked() {
                     close_clicked = true;
                 }
             });
@@ -212,7 +213,7 @@ pub fn render_go_to_line(
     let mut open_window = true;
     let mut close_requested = false;
 
-    Window::new("Go to Line")
+    Window::new(tr("Go to Line"))
         .open(&mut open_window)
         .collapsible(false)
         .resizable(false)
@@ -233,13 +234,13 @@ pub fn render_go_to_line(
 
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                if ui.button("Go to Line").clicked() {
+                if ui.button(tr("Go to Line")).clicked() {
                     if let Ok(num) = state.line_input.trim().parse::<usize>() {
                         action = DialogAction::GoToLine(num);
                         close_requested = true;
                     }
                 }
-                if ui.button("Cancel").clicked() {
+                if ui.button(tr("Cancel")).clicked() {
                     close_requested = true;
                 }
             });
@@ -273,7 +274,7 @@ pub fn render_about(ctx: &Context, state: &mut AboutState) {
             ui.separator();
             ui.hyperlink_to("Source & Docs in D:\\GIT\\rust-note", "https://github.com/rust-note/rust-note");
             ui.add_space(8.0);
-            if ui.button("OK").clicked() {
+            if ui.button(tr("OK")).clicked() {
                 close_requested = true;
             }
         });
@@ -308,7 +309,7 @@ pub fn render_summary(ctx: &Context, state: &mut SummaryState) {
             ui.label(format!("Total Lines:      {}", state.line_count));
             ui.label(format!("Total Bytes:      {} bytes", state.byte_count));
             ui.add_space(8.0);
-            if ui.button("Close").clicked() {
+            if ui.button(tr("Close")).clicked() {
                 close_requested = true;
             }
         });

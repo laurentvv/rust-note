@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::buffer::{Document, Encoding, EolFormat};
 use crate::cli::CliArgs;
 use crate::editor::operations::{self, CaseMode};
+use crate::i18n::{self, tr, UiLang};
 use crate::plugins;
 use crate::search::{self, SearchOptions};
 use crate::settings::Settings;
@@ -57,6 +58,7 @@ impl RustNoteApp {
         cc.egui_ctx.set_visuals(visuals);
 
         let settings = Settings::load();
+        i18n::set_lang(settings.lang);
         let mut docs = Vec::new();
 
         // Load files from CLI args if provided
@@ -955,6 +957,7 @@ impl eframe::App for RustNoteApp {
         {
             let mut cur = self.settings.clone();
             cur.theme = self.theme;
+            cur.lang = i18n::lang();
             cur.font_size = self.font_size;
             cur.word_wrap = self.word_wrap;
             cur.show_line_numbers = self.show_line_numbers;
@@ -971,56 +974,56 @@ impl eframe::App for RustNoteApp {
         egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 // --- FILE ---
-                ui.menu_button("File", |ui| {
-                    if ui.button("New\tCtrl+N").clicked() {
+                ui.menu_button(tr("File"), |ui| {
+                    if ui.button(tr("New\tCtrl+N")).clicked() {
                         self.new_document();
                         ui.close();
                     }
-                    if ui.button("Open...\tCtrl+O").clicked() {
+                    if ui.button(tr("Open...\tCtrl+O")).clicked() {
                         self.open_file_dialog();
                         ui.close();
                     }
-                    if ui.button("Save\tCtrl+S").clicked() {
+                    if ui.button(tr("Save\tCtrl+S")).clicked() {
                         self.save_current();
                         ui.close();
                     }
-                    if ui.button("Save As...\tCtrl+Alt+S").clicked() {
+                    if ui.button(tr("Save As...\tCtrl+Alt+S")).clicked() {
                         self.save_as_current();
                         ui.close();
                     }
-                    if ui.button("Save All\tCtrl+Shift+S").clicked() {
+                    if ui.button(tr("Save All\tCtrl+Shift+S")).clicked() {
                         self.save_all();
                         ui.close();
                     }
                     ui.separator();
-                    if ui.button("Close\tCtrl+W").clicked() {
+                    if ui.button(tr("Close\tCtrl+W")).clicked() {
                         self.close_current();
                         ui.close();
                     }
-                    if ui.button("Close All\tCtrl+Shift+W").clicked() {
+                    if ui.button(tr("Close All\tCtrl+Shift+W")).clicked() {
                         self.close_all();
                         ui.close();
                     }
-                    if ui.button("Close All BUT Current").clicked() {
+                    if ui.button(tr("Close All BUT Current")).clicked() {
                         self.close_all_except_current();
                         ui.close();
                     }
-                    if ui.button("Restore Closed Tab\tCtrl+Shift+T").clicked() {
+                    if ui.button(tr("Restore Closed Tab\tCtrl+Shift+T")).clicked() {
                         self.restore_closed_document();
                         ui.close();
                     }
                     ui.separator();
-                    if ui.button("Export to HTML...").clicked() {
+                    if ui.button(tr("Export to HTML...")).clicked() {
                         self.export_current_to_html();
                         ui.close();
                     }
-                    if ui.button("Export to RTF (Rich Text)...").clicked() {
+                    if ui.button(tr("Export to RTF (Rich Text)...")).clicked() {
                         self.export_current_to_rtf();
                         ui.close();
                     }
                     ui.separator();
                     ui.add_enabled_ui(!self.settings.recent_files.is_empty(), |ui| {
-                        ui.menu_button("Recent Files", |ui| {
+                        ui.menu_button(tr("Recent Files"), |ui| {
                             let recents = self.settings.recent_files.clone();
                             for (n, path) in recents.iter().enumerate() {
                                 let name = path.file_name().map_or_else(|| path.display().to_string(), |f| f.to_string_lossy().to_string());
@@ -1030,42 +1033,42 @@ impl eframe::App for RustNoteApp {
                                 }
                             }
                             ui.separator();
-                            if ui.button("Clear Recent Files").clicked() {
+                            if ui.button(tr("Clear Recent Files")).clicked() {
                                 self.settings.recent_files.clear();
                                 ui.close();
                             }
                         });
                     });
-                    ui.menu_button("Copy to Clipboard", |ui| {
-                        if ui.button("Copy Full File Path").clicked() {
+                    ui.menu_button(tr("Copy to Clipboard"), |ui| {
+                        if ui.button(tr("Copy Full File Path")).clicked() {
                             self.copy_full_path(ctx);
                             ui.close();
                         }
-                        if ui.button("Copy Filename").clicked() {
+                        if ui.button(tr("Copy Filename")).clicked() {
                             self.copy_filename(ctx);
                             ui.close();
                         }
-                        if ui.button("Copy Directory Path").clicked() {
+                        if ui.button(tr("Copy Directory Path")).clicked() {
                             self.copy_directory_path(ctx);
                             ui.close();
                         }
                     });
                     ui.separator();
-                    if ui.button("Exit\tAlt+F4").clicked() {
+                    if ui.button(tr("Exit\tAlt+F4")).clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                         ui.close();
                     }
                 });
 
                 // --- EDIT ---
-                ui.menu_button("Edit", |ui| {
-                    if ui.button("Undo\tCtrl+Z").clicked() {
+                ui.menu_button(tr("Edit"), |ui| {
+                    if ui.button(tr("Undo\tCtrl+Z")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.undo();
                         }
                         ui.close();
                     }
-                    if ui.button("Redo\tCtrl+Y").clicked() {
+                    if ui.button(tr("Redo\tCtrl+Y")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.redo();
                         }
@@ -1073,8 +1076,8 @@ impl eframe::App for RustNoteApp {
                     }
                     ui.separator();
 
-                    ui.menu_button("Line Operations", |ui| {
-                        if ui.button("Duplicate Current Line\tCtrl+D").clicked() {
+                    ui.menu_button(tr("Line Operations"), |ui| {
+                        if ui.button(tr("Duplicate Current Line\tCtrl+D")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let cur = doc.cursor_line;
                                 let dup = operations::duplicate_line(&doc.content, cur);
@@ -1082,21 +1085,21 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Remove Duplicate Lines").clicked() {
+                        if ui.button(tr("Remove Duplicate Lines")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let dedup = operations::remove_duplicate_lines(&doc.content, false);
                                 doc.set_content(dedup);
                             }
                             ui.close();
                         }
-                        if ui.button("Remove Consecutive Duplicate Lines").clicked() {
+                        if ui.button(tr("Remove Consecutive Duplicate Lines")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let dedup = operations::remove_duplicate_lines(&doc.content, true);
                                 doc.set_content(dedup);
                             }
                             ui.close();
                         }
-                        if ui.button("Move Line Up").clicked() {
+                        if ui.button(tr("Move Line Up")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let cur = doc.cursor_line;
                                 let moved = operations::move_line_up(&doc.content, cur);
@@ -1105,7 +1108,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Move Line Down").clicked() {
+                        if ui.button(tr("Move Line Down")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let cur = doc.cursor_line;
                                 let moved = operations::move_line_down(&doc.content, cur);
@@ -1115,21 +1118,21 @@ impl eframe::App for RustNoteApp {
                             ui.close();
                         }
                         ui.separator();
-                        if ui.button("Sort Lines Ascending").clicked() {
+                        if ui.button(tr("Sort Lines Ascending")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let sorted = operations::sort_lines(&doc.content, true, true, false);
                                 doc.set_content(sorted);
                             }
                             ui.close();
                         }
-                        if ui.button("Sort Lines Descending").clicked() {
+                        if ui.button(tr("Sort Lines Descending")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let sorted = operations::sort_lines(&doc.content, false, true, false);
                                 doc.set_content(sorted);
                             }
                             ui.close();
                         }
-                        if ui.button("Join Lines\tCtrl+J").clicked() {
+                        if ui.button(tr("Join Lines\tCtrl+J")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let joined = operations::join_lines(&doc.content);
                                 doc.set_content(joined);
@@ -1138,36 +1141,36 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("Convert Case to", |ui| {
-                        if ui.button("UPPERCASE\tCtrl+Shift+U").clicked() {
+                    ui.menu_button(tr("Convert Case to"), |ui| {
+                        if ui.button(tr("UPPERCASE\tCtrl+Shift+U")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let c = operations::convert_case(&doc.content, CaseMode::Uppercase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
-                        if ui.button("lowercase\tCtrl+U").clicked() {
+                        if ui.button(tr("lowercase\tCtrl+U")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let c = operations::convert_case(&doc.content, CaseMode::Lowercase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
-                        if ui.button("Proper Case").clicked() {
+                        if ui.button(tr("Proper Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let c = operations::convert_case(&doc.content, CaseMode::ProperCase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
-                        if ui.button("Invert Case").clicked() {
+                        if ui.button(tr("Invert Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let c = operations::convert_case(&doc.content, CaseMode::InvertCase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
-                        if ui.button("Random Case").clicked() {
+                        if ui.button(tr("Random Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let c = operations::convert_case(&doc.content, CaseMode::RandomCase);
                                 doc.set_content(c);
@@ -1176,29 +1179,29 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("Blank Operations", |ui| {
-                        if ui.button("Trim Trailing Space").clicked() {
+                    ui.menu_button(tr("Blank Operations"), |ui| {
+                        if ui.button(tr("Trim Trailing Space")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let t = operations::trim_trailing_spaces(&doc.content);
                                 doc.set_content(t);
                             }
                             ui.close();
                         }
-                        if ui.button("Trim Leading Space").clicked() {
+                        if ui.button(tr("Trim Leading Space")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let t = operations::trim_leading_spaces(&doc.content);
                                 doc.set_content(t);
                             }
                             ui.close();
                         }
-                        if ui.button("TAB to Space").clicked() {
+                        if ui.button(tr("TAB to Space")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let t = operations::tabs_to_spaces(&doc.content, 4);
                                 doc.set_content(t);
                             }
                             ui.close();
                         }
-                        if ui.button("Space to TAB").clicked() {
+                        if ui.button(tr("Space to TAB")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let t = operations::spaces_to_tabs(&doc.content, 4);
                                 doc.set_content(t);
@@ -1207,9 +1210,9 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("Insert Date Time", |ui| {
+                    ui.menu_button(tr("Insert Date Time"), |ui| {
                         let now = chrono::Local::now();
-                        if ui.button("Date Time (short)").clicked() {
+                        if ui.button(tr("Date Time (short)")).clicked() {
                             let stamp = now.format("%Y-%m-%d %H:%M").to_string();
                             if let Some(doc) = self.active_doc_mut() {
                                 let mut c = doc.content.clone();
@@ -1218,7 +1221,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Date Time (long)").clicked() {
+                        if ui.button(tr("Date Time (long)")).clicked() {
                             let stamp = now.format("%Y-%m-%d %H:%M:%S").to_string();
                             if let Some(doc) = self.active_doc_mut() {
                                 let mut c = doc.content.clone();
@@ -1229,8 +1232,8 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("EOL Conversion", |ui| {
-                        if ui.button("Windows (CR LF)").clicked() {
+                    ui.menu_button(tr("EOL Conversion"), |ui| {
+                        if ui.button(tr("Windows (CR LF)")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let converted =
                                     crate::buffer::eol::convert(&doc.content, EolFormat::Windows);
@@ -1239,7 +1242,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Unix (LF)").clicked() {
+                        if ui.button(tr("Unix (LF)")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let converted =
                                     crate::buffer::eol::convert(&doc.content, EolFormat::Unix);
@@ -1248,7 +1251,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Macintosh (CR)").clicked() {
+                        if ui.button(tr("Macintosh (CR)")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let converted =
                                     crate::buffer::eol::convert(&doc.content, EolFormat::Mac);
@@ -1259,7 +1262,7 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    if ui.button("Toggle Comment\tCtrl+Q").clicked() {
+                    if ui.button(tr("Toggle Comment\tCtrl+Q")).clicked() {
                         let prefix = self.current_language.comment_prefix();
                         if let Some(doc) = self.active_doc_mut() {
                             let c = operations::toggle_comment(&doc.content, prefix);
@@ -1270,26 +1273,26 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- SEARCH ---
-                ui.menu_button("Search", |ui| {
-                    if ui.button("Find...\tCtrl+F").clicked() {
+                ui.menu_button(tr("Search"), |ui| {
+                    if ui.button(tr("Find...\tCtrl+F")).clicked() {
                         self.find_replace.is_open = true;
                         self.find_replace.tab = FindTab::Find;
                         ui.close();
                     }
-                    if ui.button("Replace...\tCtrl+H").clicked() {
+                    if ui.button(tr("Replace...\tCtrl+H")).clicked() {
                         self.find_replace.is_open = true;
                         self.find_replace.tab = FindTab::Replace;
                         ui.close();
                     }
-                    if ui.button("Find Next\tF3").clicked() {
+                    if ui.button(tr("Find Next\tF3")).clicked() {
                         self.execute_find(true);
                         ui.close();
                     }
-                    if ui.button("Find Previous\tShift+F3").clicked() {
+                    if ui.button(tr("Find Previous\tShift+F3")).clicked() {
                         self.execute_find(false);
                         ui.close();
                     }
-                    if ui.button("Go to Line...\tCtrl+G").clicked() {
+                    if ui.button(tr("Go to Line...\tCtrl+G")).clicked() {
                         let max_l = self.active_doc().map(|d| d.line_count()).unwrap_or(1);
                         self.goto_line.is_open = true;
                         self.goto_line.max_lines = max_l;
@@ -1298,26 +1301,33 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- VIEW ---
-                ui.menu_button("View", |ui| {
-                    ui.checkbox(&mut self.word_wrap, "Word Wrap");
-                    ui.checkbox(&mut self.show_line_numbers, "Line Numbers");
-                    ui.checkbox(&mut self.show_function_list, "Function List (Ctrl+Alt+L)");
-                    ui.checkbox(&mut self.document_map, "Document Map (Minimap)");
+                ui.menu_button(tr("View"), |ui| {
+                    ui.checkbox(&mut self.word_wrap, tr("Word Wrap"));
+                    ui.checkbox(&mut self.show_line_numbers, tr("Line Numbers"));
+                    ui.checkbox(&mut self.show_function_list, tr("Function List (Ctrl+Alt+L)"));
                     ui.separator();
-                    if ui.button("Zoom In (Ctrl+Num+)").clicked() {
+                    if ui.button(tr("Zoom In (Ctrl+Num+)")).clicked() {
                         self.font_size = (self.font_size + 2.0).min(36.0);
                         ui.close();
                     }
-                    if ui.button("Zoom Out (Ctrl+Num-)").clicked() {
+                    if ui.button(tr("Zoom Out (Ctrl+Num-)")).clicked() {
                         self.font_size = (self.font_size - 2.0).max(8.0);
                         ui.close();
                     }
-                    if ui.button("Restore Default Zoom").clicked() {
+                    if ui.button(tr("Restore Default Zoom")).clicked() {
                         self.font_size = 14.0;
                         ui.close();
                     }
                     ui.separator();
-                    ui.menu_button("Theme", |ui| {
+                    ui.menu_button(tr("Interface language"), |ui| {
+                        for l in UiLang::ALL {
+                            if ui.selectable_label(i18n::lang() == l, l.name()).clicked() {
+                                i18n::set_lang(l);
+                                ui.close();
+                            }
+                        }
+                    });
+                    ui.menu_button(tr("Theme"), |ui| {
                         for t in EditorTheme::ALL {
                             if ui.selectable_label(self.theme == t, t.name()).clicked() {
                                 self.theme = t;
@@ -1330,32 +1340,32 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- ENCODING ---
-                ui.menu_button("Encoding", |ui| {
-                    if ui.button("UTF-8").clicked() {
+                ui.menu_button(tr("Encoding"), |ui| {
+                    if ui.button(tr("UTF-8")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.encoding = Encoding::Utf8;
                         }
                         ui.close();
                     }
-                    if ui.button("UTF-8-BOM").clicked() {
+                    if ui.button(tr("UTF-8-BOM")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.encoding = Encoding::Utf8Bom;
                         }
                         ui.close();
                     }
-                    if ui.button("UTF-16 LE").clicked() {
+                    if ui.button(tr("UTF-16 LE")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.encoding = Encoding::Utf16Le;
                         }
                         ui.close();
                     }
-                    if ui.button("UTF-16 BE").clicked() {
+                    if ui.button(tr("UTF-16 BE")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.encoding = Encoding::Utf16Be;
                         }
                         ui.close();
                     }
-                    if ui.button("ANSI (Windows-1252)").clicked() {
+                    if ui.button(tr("ANSI (Windows-1252)")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.encoding = Encoding::Ansi;
                         }
@@ -1364,7 +1374,7 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- LANGUAGE ---
-                ui.menu_button("Language", |ui| {
+                ui.menu_button(tr("Language"), |ui| {
                     let langs = [
                         Language::PlainText,
                         Language::Rust,
@@ -1415,16 +1425,16 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- PLUGINS & TOOLS ---
-                ui.menu_button("Plugins", |ui| {
-                    ui.menu_button("MIME Tools", |ui| {
-                        if ui.button("Base64 Encode").clicked() {
+                ui.menu_button(tr("Plugins"), |ui| {
+                    ui.menu_button(tr("MIME Tools"), |ui| {
+                        if ui.button(tr("Base64 Encode")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let enc = plugins::base64_encode(&doc.content);
                                 doc.set_content(enc);
                             }
                             ui.close();
                         }
-                        if ui.button("Base64 Decode").clicked() {
+                        if ui.button(tr("Base64 Decode")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 if let Ok(dec) = plugins::base64_decode(&doc.content) {
                                     doc.set_content(dec);
@@ -1432,14 +1442,14 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("URL Encode").clicked() {
+                        if ui.button(tr("URL Encode")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let enc = plugins::url_encode(&doc.content);
                                 doc.set_content(enc);
                             }
                             ui.close();
                         }
-                        if ui.button("URL Decode").clicked() {
+                        if ui.button(tr("URL Decode")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 if let Ok(dec) = plugins::url_decode(&doc.content) {
                                     doc.set_content(dec);
@@ -1447,7 +1457,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("Quoted-Printable Encode").clicked() {
+                        if ui.button(tr("Quoted-Printable Encode")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let enc = plugins::quoted_printable_encode(&doc.content);
                                 doc.set_content(enc);
@@ -1456,20 +1466,20 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("Converter", |ui| {
-                        if ui.button("0x Quick Conversion Panel...").clicked() {
+                    ui.menu_button(tr("Converter"), |ui| {
+                        if ui.button(tr("0x Quick Conversion Panel...")).clicked() {
                             self.conversion_panel.is_open = true;
                             ui.close();
                         }
                         ui.separator();
-                        if ui.button("ASCII to HEX").clicked() {
+                        if ui.button(tr("ASCII to HEX")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 let hex = plugins::ascii_to_hex(&doc.content);
                                 doc.set_content(hex);
                             }
                             ui.close();
                         }
-                        if ui.button("HEX to ASCII").clicked() {
+                        if ui.button(tr("HEX to ASCII")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 if let Ok(asc) = plugins::hex_to_ascii(&doc.content) {
                                     doc.set_content(asc);
@@ -1477,7 +1487,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("DEC to HEX (0x...)").clicked() {
+                        if ui.button(tr("DEC to HEX (0x...)")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 if let Ok(hex) = plugins::dec_to_hex(&doc.content) {
                                     doc.set_content(hex);
@@ -1485,7 +1495,7 @@ impl eframe::App for RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button("HEX to DEC").clicked() {
+                        if ui.button(tr("HEX to DEC")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
                                 if let Ok(dec) = plugins::hex_to_dec(&doc.content) {
                                     doc.set_content(dec);
@@ -1495,27 +1505,27 @@ impl eframe::App for RustNoteApp {
                         }
                     });
 
-                    ui.menu_button("NppExport", |ui| {
-                        if ui.button("Export to HTML...").clicked() {
+                    ui.menu_button(tr("NppExport"), |ui| {
+                        if ui.button(tr("Export to HTML...")).clicked() {
                             self.export_current_to_html();
                             ui.close();
                         }
-                        if ui.button("Export to RTF (Rich Text)...").clicked() {
+                        if ui.button(tr("Export to RTF (Rich Text)...")).clicked() {
                             self.export_current_to_rtf();
                             ui.close();
                         }
                     });
 
-                    ui.menu_button("NppShell", |ui| {
-                        if ui.button("Copy Full File Path").clicked() {
+                    ui.menu_button(tr("NppShell"), |ui| {
+                        if ui.button(tr("Copy Full File Path")).clicked() {
                             self.copy_full_path(ctx);
                             ui.close();
                         }
-                        if ui.button("Copy Filename").clicked() {
+                        if ui.button(tr("Copy Filename")).clicked() {
                             self.copy_filename(ctx);
                             ui.close();
                         }
-                        if ui.button("Copy Directory Path").clicked() {
+                        if ui.button(tr("Copy Directory Path")).clicked() {
                             self.copy_directory_path(ctx);
                             ui.close();
                         }
@@ -1523,24 +1533,24 @@ impl eframe::App for RustNoteApp {
                 });
 
                 // --- TOOLS ---
-                ui.menu_button("Tools", |ui| {
-                    if ui.button("Document Summary").clicked() {
+                ui.menu_button(tr("Tools"), |ui| {
+                    if ui.button(tr("Document Summary")).clicked() {
                         self.show_summary();
                         ui.close();
                     }
                 });
 
                 // --- HELP (?) ---
-                ui.menu_button("?", |ui| {
-                    if ui.button("Keyboard Shortcuts").clicked() {
+                ui.menu_button(tr("?"), |ui| {
+                    if ui.button(tr("Keyboard Shortcuts")).clicked() {
                         self.show_shortcuts = true;
                         ui.close();
                     }
-                    if ui.button("About rust-note").clicked() {
+                    if ui.button(tr("About rust-note")).clicked() {
                         self.about.is_open = true;
                         ui.close();
                     }
-                    if ui.button("Documentation & Sources").clicked() {
+                    if ui.button(tr("Documentation & Sources")).clicked() {
                         ctx.open_url(egui::OpenUrl::new_tab("https://github.com/laurentvv/rust-note"));
                         ui.close();
                     }
@@ -1553,19 +1563,19 @@ impl eframe::App for RustNoteApp {
             ui.horizontal(|ui| {
                 // Group 1: Files
                 ui.horizontal(|ui| {
-                    if ui.button("📄 New").on_hover_text("New Document (Ctrl+N)").clicked() {
+                    if ui.button(tr("📄 New")).on_hover_text(tr("New Document (Ctrl+N)")).clicked() {
                         self.new_document();
                     }
-                    if ui.button("📂 Open").on_hover_text("Open File (Ctrl+O)").clicked() {
+                    if ui.button(tr("📂 Open")).on_hover_text(tr("Open File (Ctrl+O)")).clicked() {
                         self.open_file_dialog();
                     }
-                    if ui.button("💾 Save").on_hover_text("Save (Ctrl+S)").clicked() {
+                    if ui.button(tr("💾 Save")).on_hover_text(tr("Save (Ctrl+S)")).clicked() {
                         self.save_current();
                     }
-                    if ui.button("💾💾 All").on_hover_text("Save All (Ctrl+Shift+S)").clicked() {
+                    if ui.button(tr("💾💾 All")).on_hover_text(tr("Save All (Ctrl+Shift+S)")).clicked() {
                         self.save_all();
                     }
-                    if ui.button("❌ Close").on_hover_text("Close Tab (Ctrl+W)").clicked() {
+                    if ui.button(tr("❌ Close")).on_hover_text(tr("Close Tab (Ctrl+W)")).clicked() {
                         self.close_current();
                     }
                 });
@@ -1574,12 +1584,12 @@ impl eframe::App for RustNoteApp {
 
                 // Group 2: History
                 ui.horizontal(|ui| {
-                    if ui.button("↩ Undo").on_hover_text("Undo (Ctrl+Z)").clicked() {
+                    if ui.button(tr("↩ Undo")).on_hover_text(tr("Undo (Ctrl+Z)")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.undo();
                         }
                     }
-                    if ui.button("↪ Redo").on_hover_text("Redo (Ctrl+Y)").clicked() {
+                    if ui.button(tr("↪ Redo")).on_hover_text(tr("Redo (Ctrl+Y)")).clicked() {
                         if let Some(doc) = self.active_doc_mut() {
                             doc.redo();
                         }
@@ -1590,11 +1600,11 @@ impl eframe::App for RustNoteApp {
 
                 // Group 3: Search
                 ui.horizontal(|ui| {
-                    if ui.button("🔍 Find").on_hover_text("Find (Ctrl+F)").clicked() {
+                    if ui.button(tr("🔍 Find")).on_hover_text(tr("Find (Ctrl+F)")).clicked() {
                         self.find_replace.is_open = true;
                         self.find_replace.tab = FindTab::Find;
                     }
-                    if ui.button("🔁 Replace").on_hover_text("Replace (Ctrl+H)").clicked() {
+                    if ui.button(tr("🔁 Replace")).on_hover_text(tr("Replace (Ctrl+H)")).clicked() {
                         self.find_replace.is_open = true;
                         self.find_replace.tab = FindTab::Replace;
                     }
@@ -1604,13 +1614,13 @@ impl eframe::App for RustNoteApp {
 
                 // Group 4: Tools & Converters (from NppConverter.dll)
                 ui.horizontal(|ui| {
-                    if ui.selectable_label(self.conversion_panel.is_open, "🧮 0x Converter").on_hover_text("Real-Time Multi-Base Quick Converter").clicked() {
+                    if ui.selectable_label(self.conversion_panel.is_open, tr("🧮 0x Converter")).on_hover_text(tr("Real-Time Multi-Base Quick Converter")).clicked() {
                         self.conversion_panel.is_open = !self.conversion_panel.is_open;
                     }
-                    if ui.selectable_label(self.show_function_list, "📋 Symbols").on_hover_text("Function List Outline (Ctrl+Alt+L)").clicked() {
+                    if ui.selectable_label(self.show_function_list, tr("📋 Symbols")).on_hover_text(tr("Function List Outline (Ctrl+Alt+L)")).clicked() {
                         self.show_function_list = !self.show_function_list;
                     }
-                    if ui.button("📊 Summary").on_hover_text("Document Properties").clicked() {
+                    if ui.button(tr("📊 Summary")).on_hover_text(tr("Document Properties")).clicked() {
                         self.show_summary();
                     }
                 });
@@ -1619,13 +1629,13 @@ impl eframe::App for RustNoteApp {
 
                 // Group 5: View & Zoom
                 ui.horizontal(|ui| {
-                    if ui.button("➕").on_hover_text("Zoom in (Ctrl+Num+)").clicked() {
+                    if ui.button(tr("➕")).on_hover_text(tr("Zoom in (Ctrl+Num+)")).clicked() {
                         self.font_size = (self.font_size + 2.0).min(36.0);
                     }
-                    if ui.button("➖").on_hover_text("Zoom out (Ctrl+Num-)").clicked() {
+                    if ui.button(tr("➖")).on_hover_text(tr("Zoom out (Ctrl+Num-)")).clicked() {
                         self.font_size = (self.font_size - 2.0).max(8.0);
                     }
-                    if ui.selectable_label(self.word_wrap, "↩ Wrap").clicked() {
+                    if ui.selectable_label(self.word_wrap, tr("↩ Wrap")).clicked() {
                         self.word_wrap = !self.word_wrap;
                     }
                 });
@@ -1634,7 +1644,7 @@ impl eframe::App for RustNoteApp {
                     let mut chosen = self.theme;
                     egui::ComboBox::from_id_salt("theme_combo")
                         .width(110.0)
-                        .selected_text("🎨 Theme")
+                        .selected_text(tr("🎨 Theme"))
                         .show_ui(ui, |ui| {
                             for t in EditorTheme::ALL {
                                 ui.selectable_value(&mut chosen, t, t.name());
@@ -1686,26 +1696,26 @@ impl eframe::App for RustNoteApp {
                                     }
 
                                     tab_btn.context_menu(|ui| {
-                                        if ui.button("Close Tab\tCtrl+W").clicked() {
+                                        if ui.button(tr("Close Tab\tCtrl+W")).clicked() {
                                             to_close = Some(idx);
                                             ui.close();
                                         }
-                                        if ui.button("Close Other Tabs").clicked() {
+                                        if ui.button(tr("Close Other Tabs")).clicked() {
                                             close_others = Some(idx);
                                             ui.close();
                                         }
                                         ui.separator();
-                                        if ui.button("Copy Full File Path").clicked() {
+                                        if ui.button(tr("Copy Full File Path")).clicked() {
                                             copy_path_idx = Some(idx);
                                             ui.close();
                                         }
-                                        if ui.button("Copy Filename").clicked() {
+                                        if ui.button(tr("Copy Filename")).clicked() {
                                             copy_name_idx = Some(idx);
                                             ui.close();
                                         }
                                     });
 
-                                    if ui.small_button("×").on_hover_text("Close tab (Ctrl+W)").clicked() {
+                                    if ui.small_button(tr("×")).on_hover_text(tr("Close tab (Ctrl+W)")).clicked() {
                                         to_close = Some(idx);
                                     }
                                 });
@@ -1735,7 +1745,7 @@ impl eframe::App for RustNoteApp {
                                 self.close_at(idx);
                             }
 
-                            if ui.button("+").on_hover_text("New tab (Ctrl+N)").clicked() {
+                            if ui.button(tr("+")).on_hover_text(tr("New tab (Ctrl+N)")).clicked() {
                                 self.new_document();
                             }
                         });
@@ -1816,7 +1826,7 @@ impl eframe::App for RustNoteApp {
                     ui.horizontal(|ui| {
                         ui.heading("📋 Function List");
                         ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.small_button("×").clicked() {
+                            if ui.small_button(tr("×")).clicked() {
                                 self.show_function_list = false;
                             }
                         });
@@ -1826,7 +1836,7 @@ impl eframe::App for RustNoteApp {
                     ui.horizontal(|ui| {
                         ui.label("🔍");
                         ui.text_edit_singleline(&mut self.symbol_filter);
-                        if !self.symbol_filter.is_empty() && ui.small_button("×").clicked() {
+                        if !self.symbol_filter.is_empty() && ui.small_button(tr("×")).clicked() {
                             self.symbol_filter.clear();
                         }
                     });
@@ -2255,59 +2265,59 @@ impl eframe::App for RustNoteApp {
                             response.context_menu(|ui| {
                                 ui.label(RichText::new("rust-note Context Menu").strong());
                                 ui.separator();
-                                if ui.button("Undo\tCtrl+Z").clicked() {
+                                if ui.button(tr("Undo\tCtrl+Z")).clicked() {
                                     doc.undo();
                                     ui.close();
                                 }
-                            if ui.button("Redo\tCtrl+Y").clicked() {
+                            if ui.button(tr("Redo\tCtrl+Y")).clicked() {
                                 doc.redo();
                                 ui.close();
                             }
                             ui.separator();
-                            ui.menu_button("Line Operations", |ui| {
-                                if ui.button("Duplicate Current Line\tCtrl+D").clicked() {
+                            ui.menu_button(tr("Line Operations"), |ui| {
+                                if ui.button(tr("Duplicate Current Line\tCtrl+D")).clicked() {
                                     let cur = doc.cursor_line;
                                     let dup = operations::duplicate_line(&doc.content, cur);
                                     doc.set_content(dup);
                                     ui.close();
                                 }
-                                if ui.button("Move Line Up").clicked() {
+                                if ui.button(tr("Move Line Up")).clicked() {
                                     let cur = doc.cursor_line;
                                     let moved = operations::move_line_up(&doc.content, cur);
                                     doc.set_content(moved);
                                     doc.cursor_line = doc.cursor_line.saturating_sub(1).max(1);
                                     ui.close();
                                 }
-                                if ui.button("Move Line Down").clicked() {
+                                if ui.button(tr("Move Line Down")).clicked() {
                                     let cur = doc.cursor_line;
                                     let moved = operations::move_line_down(&doc.content, cur);
                                     doc.set_content(moved);
                                     doc.cursor_line += 1;
                                     ui.close();
                                 }
-                                if ui.button("Remove Duplicate Lines").clicked() {
+                                if ui.button(tr("Remove Duplicate Lines")).clicked() {
                                     let dedup = operations::remove_duplicate_lines(&doc.content, false);
                                     doc.set_content(dedup);
                                     ui.close();
                                 }
-                                if ui.button("Sort Lines Ascending").clicked() {
+                                if ui.button(tr("Sort Lines Ascending")).clicked() {
                                     let sorted = operations::sort_lines(&doc.content, true, true, false);
                                     doc.set_content(sorted);
                                     ui.close();
                                 }
                             });
-                            ui.menu_button("Convert Case", |ui| {
-                                if ui.button("UPPERCASE\tCtrl+Shift+U").clicked() {
+                            ui.menu_button(tr("Convert Case"), |ui| {
+                                if ui.button(tr("UPPERCASE\tCtrl+Shift+U")).clicked() {
                                     let c = operations::convert_case(&doc.content, CaseMode::Uppercase);
                                     doc.set_content(c);
                                     ui.close();
                                 }
-                                if ui.button("lowercase\tCtrl+U").clicked() {
+                                if ui.button(tr("lowercase\tCtrl+U")).clicked() {
                                     let c = operations::convert_case(&doc.content, CaseMode::Lowercase);
                                     doc.set_content(c);
                                     ui.close();
                                 }
-                                if ui.button("Proper Case").clicked() {
+                                if ui.button(tr("Proper Case")).clicked() {
                                     let c = operations::convert_case(&doc.content, CaseMode::ProperCase);
                                     doc.set_content(c);
                                     ui.close();
@@ -2320,24 +2330,24 @@ impl eframe::App for RustNoteApp {
                                 ui.close();
                             }
                             ui.separator();
-                            ui.menu_button("MIME / Tools", |ui| {
-                                if ui.button("Base64 Encode").clicked() {
+                            ui.menu_button(tr("MIME / Tools"), |ui| {
+                                if ui.button(tr("Base64 Encode")).clicked() {
                                     let enc = plugins::base64_encode(&doc.content);
                                     doc.set_content(enc);
                                     ui.close();
                                 }
-                                if ui.button("Base64 Decode").clicked() {
+                                if ui.button(tr("Base64 Decode")).clicked() {
                                     if let Ok(dec) = plugins::base64_decode(&doc.content) {
                                         doc.set_content(dec);
                                     }
                                     ui.close();
                                 }
-                                if ui.button("URL Encode").clicked() {
+                                if ui.button(tr("URL Encode")).clicked() {
                                     let enc = plugins::url_encode(&doc.content);
                                     doc.set_content(enc);
                                     ui.close();
                                 }
-                                if ui.button("URL Decode").clicked() {
+                                if ui.button(tr("URL Decode")).clicked() {
                                     if let Ok(dec) = plugins::url_decode(&doc.content) {
                                         doc.set_content(dec);
                                     }
@@ -2347,18 +2357,18 @@ impl eframe::App for RustNoteApp {
                             ui.separator();
                             let doc_path = doc.path.clone();
                             let doc_title = doc.title.clone();
-                            ui.menu_button("Copy Path", |ui| {
-                                if ui.button("Copy Full File Path").clicked() {
+                            ui.menu_button(tr("Copy Path"), |ui| {
+                                if ui.button(tr("Copy Full File Path")).clicked() {
                                     if let Some(ref p) = doc_path {
                                         ui.ctx().copy_text(p.to_string_lossy().to_string());
                                     }
                                     ui.close();
                                 }
-                                if ui.button("Copy Filename").clicked() {
+                                if ui.button(tr("Copy Filename")).clicked() {
                                     ui.ctx().copy_text(doc_title.clone());
                                     ui.close();
                                 }
-                                if ui.button("Copy Directory Path").clicked() {
+                                if ui.button(tr("Copy Directory Path")).clicked() {
                                     if let Some(ref p) = doc_path {
                                         if let Some(parent) = p.parent() {
                                             ui.ctx().copy_text(parent.to_string_lossy().to_string());
@@ -2498,15 +2508,15 @@ impl eframe::App for RustNoteApp {
                     });
                     ui.separator();
                     ui.horizontal(|ui| {
-                        if ui.button("Copy HEX").clicked() {
+                        if ui.button(tr("Copy HEX")).clicked() {
                             ctx.copy_text(format!("0x{}", self.conversion_panel.hex_val));
                             self.set_notification("Copied HEX to clipboard");
                         }
-                        if ui.button("Copy DEC").clicked() {
+                        if ui.button(tr("Copy DEC")).clicked() {
                             ctx.copy_text(self.conversion_panel.dec_val.clone());
                             self.set_notification("Copied DEC to clipboard");
                         }
-                        if ui.button("Close").clicked() {
+                        if ui.button(tr("Close")).clicked() {
                             self.conversion_panel.is_open = false;
                         }
                     });
