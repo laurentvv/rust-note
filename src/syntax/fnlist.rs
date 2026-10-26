@@ -331,19 +331,67 @@ fn expand_subroutines(pattern: &str) -> String {
         }
         b
     };
-    for _ in 0..6 {
-        let mut changed = false;
-        for (name, body) in &defs {
-            let call = format!("(?&{name})");
-            if out.contains(&call) {
-                out = out.replace(&call, &format!("(?:{}\n)", strip_names(body)));
-                changed = true;
+    let mut cache: HashMap<String, String> = HashMap::new();
+    let mut stack: Vec<String> = Vec::new();
+    let mut cut = false;
+    out = inline_calls(&out, &defs, &strip_names, &mut cache, &mut stack, &mut cut);
+    out
+}
+
+
+/// Replaces every `(?&NAME)` of `text` by the expanded definition of NAME (memoized). Truly
+/// recursive definitions are unrolled to `MAX_UNROLL` levels; deeper calls become a never-matching class, which
+/// never matches (nesting deeper than that is not recognised).
+fn inline_calls(
+    text: &str,
+    defs: &[(String, String)],
+    strip_names: &dyn Fn(&str) -> String,
+    cache: &mut HashMap<String, String>,
+    stack: &mut Vec<String>,
+    cut: &mut bool,
+) -> String {
+    const MAX_UNROLL: usize = 2;
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find("(?&") {
+        out.push_str(&rest[..i]);
+        let after = &rest[i + 3..];
+        let Some(end) = after.find(')') else {
+            out.push_str(&rest[i..]);
+            return out;
+        };
+        let name = &after[..end];
+        let depth = stack.iter().filter(|n| n.as_str() == name).count();
+        let expanded: Option<String> = if let Some(c) = cache.get(name) {
+            Some(c.clone())
+        } else if depth >= MAX_UNROLL {
+            *cut = true;
+            Some("[^\\s\\S]".to_string())
+        } else if let Some((_, body)) = defs.iter().find(|(n, _)| n == name) {
+            stack.push(name.to_string());
+            let mut inner_cut = false;
+            let e = inline_calls(&strip_names(body), defs, strip_names, cache, stack, &mut inner_cut);
+            stack.pop();
+            if inner_cut {
+                *cut = true;
+            } else {
+                cache.insert(name.to_string(), e.clone());
             }
+            Some(e)
+        } else {
+            None
+        };
+        match expanded {
+            Some(e) => {
+                out.push_str("(?:");
+                out.push_str(&e);
+                out.push_str("\n)");
+            }
+            None => out.push_str(&rest[i..i + 3 + end + 1]),
         }
-        if !changed {
-            break;
-        }
+        rest = &after[end + 1..];
     }
+    out.push_str(rest);
     out
 }
 

@@ -27,7 +27,7 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - Zoom with `Ctrl`+mouse wheel, `Ctrl`+`+` / `-` / `0`.
 - Confirmation prompt before closing modified documents, also on window close.
 - **English / French interface** (View > Interface language), using familiar Notepad++ French terminology.
-- If Notepad++ is installed, its `functionList\*.xml` parsers (43 of 47 compile; PCRE subroutine calls are emulated by inlining) drive the Function List; the built-in rules are the fallback.
+- If Notepad++ is installed, its `functionList\*.xml` parsers (45 of 47 compile; PCRE subroutine calls are emulated by inlining, recursive ones are unrolled two levels) drive the Function List; the built-in rules are the fallback.
 - Function List for Rust, Python, JS/TS, Go, C-family, Ruby, Lua, PHP, shell, SQL tables and Markdown headings.
 - Session restore (reopens last files), recent files list, persistent settings (theme, zoom, wrap, gutter).
 
@@ -95,7 +95,7 @@ Run the test suite with `cargo test`.
 ## Known limitations
 
 - With word wrap on, a column block applies to whole logical lines (tabs are handled as 4 visual columns).
-- Four Notepad++ function-list parsers (C, Java, Nim, SQL) need true PCRE recursion or conditionals and fall back to the built-in rules.
+- Two Notepad++ function-list parsers (Nim, SQL) need numbered recursion or PCRE conditionals and fall back to the built-in rules.
 
 ## License
 
