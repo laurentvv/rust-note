@@ -18,6 +18,8 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - Line-number gutter aligned with wrapped lines, current-line highlight, word wrap toggle.
 - **Auto-indent** on Enter (extra level after `{`, `(`, `[`, `:`).
 - Full **undo / redo** history with typing grouped into natural steps.
+- **Column (rectangular) selection** with `Alt`+drag: type, delete, copy, cut and paste across all selected lines.
+- **6 color themes** (Obsidian Dark, Classic Light, Monokai, Solarized Dark/Light, Zenburn), switchable from the toolbar or View menu.
 - Keyboard and mouse selection: `Shift`+arrows, `Ctrl+Shift`+arrows (word), `Shift`+click, double-click (word), triple-click (line), `Ctrl+A`.
 - Zoom with `Ctrl`+mouse wheel, `Ctrl`+`+` / `-` / `0`.
 - Confirmation prompt before closing modified documents, also on window close.

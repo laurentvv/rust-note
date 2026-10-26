@@ -38,6 +38,9 @@ pub struct Document {
     /// Content as of the last recorded edit, used for undo grouping.
     pub snapshot: String,
     pub last_edit: Option<std::time::Instant>,
+    /// Active rectangular (Alt+drag) selection.
+    pub column_sel: Option<crate::editor::column::ColumnSel>,
+    pub column_dragging: bool,
 }
 
 impl Document {
@@ -68,6 +71,8 @@ impl Document {
             pending_selection: None,
             snapshot: String::new(),
             last_edit: None,
+            column_sel: None,
+            column_dragging: false,
         }
     }
 
@@ -107,6 +112,8 @@ impl Document {
             selection_len: 0,
             pending_selection: None,
             last_edit: None,
+            column_sel: None,
+            column_dragging: false,
         })
     }
 

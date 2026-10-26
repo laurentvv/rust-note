@@ -2,3 +2,4 @@
 
 pub mod dialogs;
 pub mod icon;
+pub mod themes;

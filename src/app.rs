@@ -8,19 +8,14 @@ use crate::editor::operations::{self, CaseMode};
 use crate::plugins;
 use crate::search::{self, SearchOptions};
 use crate::settings::Settings;
-use crate::syntax::highlight::{highlight as syntax_highlight, Palette};
+use crate::syntax::highlight::highlight as syntax_highlight;
 use crate::syntax::Language;
 use crate::ui::dialogs::{
     self, AboutState, DialogAction, FindReplaceState, FindTab, GoToLineState, SummaryState,
 };
 use eframe::egui::{self, Color32, Context, FontId, Layout, RichText, ScrollArea};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EditorTheme {
-    #[default]
-    DarkMode,
-    ClassicLight,
-}
+pub use crate::ui::themes::EditorTheme;
 
 pub struct RustNoteApp {
     pub docs: Vec<Document>,
@@ -135,7 +130,7 @@ impl RustNoteApp {
             show_symbols: false,
             document_map: false,
             current_language: initial_lang,
-            theme: if settings.dark_theme { EditorTheme::DarkMode } else { EditorTheme::ClassicLight },
+            theme: settings.theme,
             status_notification: None,
             closed_docs: Vec::new(),
             show_function_list: settings.show_function_list,
@@ -149,38 +144,7 @@ impl RustNoteApp {
     }
 
     pub fn apply_theme(&self, ctx: &Context) {
-        match self.theme {
-            EditorTheme::DarkMode => {
-                let mut visuals = egui::Visuals::dark();
-                visuals.panel_fill = Color32::from_rgb(24, 24, 37); // Mocha crust / Obsidian
-                visuals.window_fill = Color32::from_rgb(30, 30, 46); // Mocha base
-                visuals.extreme_bg_color = Color32::from_rgb(17, 17, 27); // Mocha mantle
-                visuals.faint_bg_color = Color32::from_rgb(24, 24, 37);
-                visuals.window_corner_radius = egui::CornerRadius::same(8);
-                visuals.menu_corner_radius = egui::CornerRadius::same(6);
-                visuals.window_stroke = egui::Stroke::new(1.0_f32, Color32::from_rgb(49, 50, 68));
-
-                visuals.widgets.noninteractive.corner_radius = egui::CornerRadius::same(6);
-                visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(6);
-                visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(6);
-                visuals.widgets.active.corner_radius = egui::CornerRadius::same(6);
-                visuals.widgets.open.corner_radius = egui::CornerRadius::same(6);
-
-                visuals.widgets.inactive.weak_bg_fill = Color32::from_rgb(30, 30, 46);
-                visuals.widgets.hovered.weak_bg_fill = Color32::from_rgb(49, 50, 68);
-                visuals.widgets.active.weak_bg_fill = Color32::from_rgb(69, 71, 90);
-
-                visuals.selection.bg_fill = Color32::from_rgb(69, 71, 90);
-                visuals.selection.stroke = egui::Stroke::new(1.0_f32, Color32::from_rgb(137, 180, 250));
-                ctx.set_visuals(visuals);
-            }
-            EditorTheme::ClassicLight => {
-                let mut visuals = egui::Visuals::light();
-                visuals.panel_fill = Color32::from_rgb(240, 240, 240);
-                visuals.window_fill = Color32::from_rgb(255, 255, 255);
-                ctx.set_visuals(visuals);
-            }
-        }
+        ctx.set_visuals(self.theme.visuals());
     }
 
     pub fn set_notification(&mut self, msg: impl Into<String>) {
@@ -858,7 +822,7 @@ impl eframe::App for RustNoteApp {
             self.current_language = l;
         }
 
-        let light = self.theme == EditorTheme::ClassicLight;
+        let light = !self.theme.is_dark();
         self.handle_shortcuts(ctx);
 
         // Drag & drop files to open them
@@ -908,7 +872,7 @@ impl eframe::App for RustNoteApp {
         // Persist settings / session when they change
         {
             let mut cur = self.settings.clone();
-            cur.dark_theme = self.theme == EditorTheme::DarkMode;
+            cur.theme = self.theme;
             cur.font_size = self.font_size;
             cur.word_wrap = self.word_wrap;
             cur.show_line_numbers = self.show_line_numbers;
@@ -1272,17 +1236,13 @@ impl eframe::App for RustNoteApp {
                     }
                     ui.separator();
                     ui.menu_button("Theme", |ui| {
-                        if ui.selectable_label(self.theme == EditorTheme::DarkMode, "rust-note Dark Mode (Obsidian)").clicked() {
-                            self.theme = EditorTheme::DarkMode;
-                            self.apply_theme(ctx);
-                            self.set_notification("Theme: rust-note Dark Mode");
-                            ui.close();
-                        }
-                        if ui.selectable_label(self.theme == EditorTheme::ClassicLight, "rust-note Classic Light").clicked() {
-                            self.theme = EditorTheme::ClassicLight;
-                            self.apply_theme(ctx);
-                            self.set_notification("Theme: rust-note Classic Light");
-                            ui.close();
+                        for t in EditorTheme::ALL {
+                            if ui.selectable_label(self.theme == t, t.name()).clicked() {
+                                self.theme = t;
+                                self.apply_theme(ctx);
+                                self.set_notification(format!("Theme: {}", t.name()));
+                                ui.close();
+                            }
                         }
                     });
                 });
@@ -1585,16 +1545,17 @@ impl eframe::App for RustNoteApp {
                 });
 
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    let (theme_btn, theme_tip) = if self.theme == EditorTheme::DarkMode {
-                        ("☀️ Light", "Switch to Light Theme")
-                    } else {
-                        ("🌙 Dark", "Switch to Obsidian Dark Theme")
-                    };
-                    if ui.button(theme_btn).on_hover_text(theme_tip).clicked() {
-                        self.theme = match self.theme {
-                            EditorTheme::DarkMode => EditorTheme::ClassicLight,
-                            EditorTheme::ClassicLight => EditorTheme::DarkMode,
-                        };
+                    let mut chosen = self.theme;
+                    egui::ComboBox::from_id_salt("theme_combo")
+                        .width(110.0)
+                        .selected_text("🎨 Theme")
+                        .show_ui(ui, |ui| {
+                            for t in EditorTheme::ALL {
+                                ui.selectable_value(&mut chosen, t, t.name());
+                            }
+                        });
+                    if chosen != self.theme {
+                        self.theme = chosen;
                         self.apply_theme(ctx);
                     }
                 });
@@ -1711,6 +1672,15 @@ impl eframe::App for RustNoteApp {
                             .strong()
                             .color(tc(light, 250, 179, 135)),
                     );
+                    if let Some(cs) = doc.column_sel {
+                        let (l1, l2, c1, c2) = cs.bounds();
+                        ui.separator();
+                        ui.label(
+                            RichText::new(format!("Column: {}×{}", l2 - l1 + 1, c2 - c1))
+                                .strong()
+                                .color(tc(light, 245, 194, 231)),
+                        );
+                    }
                     if doc.selection_len > 0 {
                         ui.separator();
                         ui.label(
@@ -1817,7 +1787,10 @@ impl eframe::App for RustNoteApp {
         }
 
         // 5. Central Panel (Editor Canvas)
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let editor_bg = self.theme.colors().editor;
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(editor_bg).inner_margin(egui::Margin::same(4)))
+            .show(ctx, |ui| {
             let active_idx = self.active_index;
             if active_idx >= self.docs.len() {
                 return;
@@ -1837,9 +1810,8 @@ impl eframe::App for RustNoteApp {
                 |ui| {
                     ui.set_min_height(available_size.y);
 
-                    let dark = self.theme == EditorTheme::DarkMode;
                     let doc = &mut self.docs[active_idx];
-                    let pal = if dark { Palette::DARK } else { Palette::LIGHT };
+                    let pal = self.theme.colors().palette;
                     let doc_lang = doc.language.unwrap_or(Language::PlainText);
 
                     // Line numbers gutter (painted after the editor so it lines up with wrapped rows)
@@ -1876,6 +1848,69 @@ impl eframe::App for RustNoteApp {
                         state.store(ui.ctx(), editor_id);
                         if !find_open {
                             ui.ctx().memory_mut(|m| m.request_focus(editor_id));
+                        }
+                    }
+
+                    // Column (rectangular) selection: typing / delete / copy / cut / paste act on the block
+                    if let (Some(sel), true) = (doc.column_sel, ui.ctx().memory(|m| m.has_focus(editor_id))) {
+                        let mut sel = sel;
+                        let mut keep_sel = true;
+                        let events = ui.ctx().input_mut(|i| std::mem::take(&mut i.events));
+                        let mut kept = Vec::with_capacity(events.len());
+                        for ev in events {
+                            match &ev {
+                                egui::Event::Text(t) | egui::Event::Paste(t) if !doc.is_readonly => {
+                                    let (c, s) = crate::editor::column::insert(&doc.content, &sel, t);
+                                    doc.content = c;
+                                    sel = s;
+                                    doc.record_typing();
+                                }
+                                egui::Event::Key { key: egui::Key::Backspace | egui::Key::Delete, pressed: true, modifiers, .. }
+                                    if modifiers.is_none() && !doc.is_readonly =>
+                                {
+                                    let fwd = matches!(&ev, egui::Event::Key { key: egui::Key::Delete, .. });
+                                    let (c, s) = crate::editor::column::delete(&doc.content, &sel, fwd);
+                                    doc.content = c;
+                                    sel = s;
+                                    doc.record_typing();
+                                }
+                                egui::Event::Copy => {
+                                    ui.ctx().copy_text(crate::editor::column::extract(&doc.content, &sel));
+                                }
+                                egui::Event::Cut if !doc.is_readonly => {
+                                    ui.ctx().copy_text(crate::editor::column::extract(&doc.content, &sel));
+                                    if !sel.is_caret_only() {
+                                        let (c, s) = crate::editor::column::delete(&doc.content, &sel, true);
+                                        doc.content = c;
+                                        sel = s;
+                                        doc.record_typing();
+                                    }
+                                }
+                                egui::Event::Key {
+                                    key:
+                                        egui::Key::Enter
+                                        | egui::Key::Escape
+                                        | egui::Key::ArrowLeft
+                                        | egui::Key::ArrowRight
+                                        | egui::Key::ArrowUp
+                                        | egui::Key::ArrowDown
+                                        | egui::Key::Home
+                                        | egui::Key::End
+                                        | egui::Key::PageUp
+                                        | egui::Key::PageDown,
+                                    pressed: true,
+                                    ..
+                                } => {
+                                    keep_sel = false;
+                                    kept.push(ev);
+                                }
+                                _ => kept.push(ev),
+                            }
+                        }
+                        ui.ctx().input_mut(|i| i.events = kept);
+                        doc.column_sel = if keep_sel { Some(sel) } else { None };
+                        if !keep_sel {
+                            doc.column_dragging = false;
                         }
                     }
 
@@ -1974,6 +2009,67 @@ impl eframe::App for RustNoteApp {
                                 if pending.is_some() || enter_pressed {
                                     ui.scroll_to_rect(crect.expand2(egui::vec2(0.0, 40.0)), Some(if pending.is_some() { egui::Align::Center } else { egui::Align::Max }));
                                 }
+                            }
+
+                            // Column selection: Alt+drag creates it, a plain click clears it
+                            {
+                                let cw = ui.fonts_mut(|f| f.glyph_width(&layout_font, 'M')).max(1.0);
+                                let (alt, pressed, down, pointer) = ui.input(|i| {
+                                    (i.modifiers.alt, i.pointer.primary_pressed(), i.pointer.primary_down(), i.pointer.interact_pos())
+                                });
+                                let to_lc = |p: egui::Pos2, doc: &Document| -> (usize, usize) {
+                                    let rel = p - output.galley_pos;
+                                    let c = output.galley.cursor_from_pos(rel);
+                                    let (line, _) = doc.line_col_from_char_index(c.index);
+                                    (line - 1, (rel.x / cw).round().max(0.0) as usize)
+                                };
+                                if let Some(p) = pointer {
+                                    if pressed && response.rect.contains(p) {
+                                        if alt {
+                                            let lc = to_lc(p, doc);
+                                            doc.column_sel = Some(crate::editor::column::ColumnSel { anchor: lc, head: lc });
+                                            doc.column_dragging = true;
+                                        } else {
+                                            doc.column_sel = None;
+                                        }
+                                    }
+                                    if doc.column_dragging {
+                                        if down {
+                                            let lc = to_lc(p, doc);
+                                            if let Some(sel) = doc.column_sel.as_mut() {
+                                                sel.head = lc;
+                                            }
+                                        } else {
+                                            doc.column_dragging = false;
+                                        }
+                                    }
+                                }
+                                if let Some(sel) = doc.column_sel {
+                                    // Hide the regular selection while a block is active
+                                    if let Some(range) = cursor_range {
+                                        if range.primary != range.secondary {
+                                            let mut st = output.state.clone();
+                                            st.cursor.set_char_range(Some(egui::text::CCursorRange::one(range.primary)));
+                                            st.store(ui.ctx(), editor_id);
+                                        }
+                                    }
+                                    let (l1, l2, c1, c2) = sel.bounds();
+                                    let starts: Vec<usize> = std::iter::once(0)
+                                        .chain(doc.content.chars().enumerate().filter(|(_, c)| *c == '\n').map(|(i, _)| i + 1))
+                                        .collect();
+                                    let fill = ui.visuals().selection.bg_fill.gamma_multiply(0.8);
+                                    for l in l1..=l2 {
+                                        if let Some(start) = starts.get(l) {
+                                            let r = output.galley.pos_from_cursor(egui::text::CCursor::new(*start));
+                                            let x0 = output.galley_pos.x + c1 as f32 * cw;
+                                            let x1 = (output.galley_pos.x + c2 as f32 * cw).max(x0 + 2.0);
+                                            let y0 = output.galley_pos.y + r.min.y;
+                                            let rect = egui::Rect::from_min_max(egui::pos2(x0, y0), egui::pos2(x1, y0 + r.height()));
+                                            ui.painter().rect_filled(rect, 0.0, fill);
+                                        }
+                                    }
+                                }
+                                let _ = alt;
                             }
 
                             if gutter_rect.is_some() {

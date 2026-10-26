@@ -6,7 +6,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Settings {
-    pub dark_theme: bool,
+    pub theme: crate::ui::themes::EditorTheme,
     pub font_size: f32,
     pub word_wrap: bool,
     pub show_line_numbers: bool,
@@ -18,7 +18,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            dark_theme: true,
+            theme: crate::ui::themes::EditorTheme::DarkMode,
             font_size: 14.0,
             word_wrap: true,
             show_line_numbers: true,
