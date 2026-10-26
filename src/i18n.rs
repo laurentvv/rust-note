@@ -51,7 +51,7 @@ pub fn tr(s: &str) -> String {
     // Entries whose English text itself contains parentheses are looked up verbatim first
     if let Some(t) = fr(head) {
         return match tab {
-            Some(tab) => format!("{t}	{tab}"),
+            Some(tab) => format!("{t}\t{}", tab.replace("Shift", "Maj")),
             None => t.to_string(),
         };
     }
