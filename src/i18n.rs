@@ -341,6 +341,7 @@ fn fr(s: &str) -> Option<&'static str> {
         "Bidirectional Real-Time Multi-Base Converter" => "Convertisseur multi-bases bidirectionnel en temps réel",
         "rust-note Context Menu" => "Menu contextuel rust-note",
         "INS" => "INS",
+        "Word wrap turned off for column selection" => "Retour à la ligne désactivé pour la sélection en colonne",
         "OK" => "OK",
         _ => return None,
     })
@@ -425,7 +426,7 @@ mod tests {
             "Found at line 2", "Found at line 2 (wrapped around the document)",
             "Count: 3 match(es) in the current document", "Replace All: 3 occurrence(s) were replaced.",
             "Find All: 4 hit(s) in 2 document(s)", "Replaced 1 occurrence; next match selected",
-            "Replaced 1 occurrence; no more matches", "Opened in a new instance",
+            "Replaced 1 occurrence; no more matches", "Opened in a new instance", "Word wrap turned off for column selection",
         ];
         set_lang(UiLang::French);
         let untranslated: Vec<&str> = messages.iter().copied().filter(|m| tr(m) == *m).collect();

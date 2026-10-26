@@ -94,7 +94,7 @@ Run the test suite with `cargo test`.
 
 ## Known limitations
 
-- With word wrap on, a column block applies to whole logical lines (tabs are handled as 4 visual columns).
+- Starting a column selection (Alt+drag) turns word wrap off, so the block is always a straight rectangle (tabs are handled as 4 visual columns).
 - Notepad++ function-list parsers are approximated: nesting deeper than three levels of recursion is not recognised.
 
 ## License

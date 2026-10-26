@@ -2026,6 +2026,7 @@ impl eframe::App for RustNoteApp {
 
         // 5. Central Panel (Editor Canvas)
         let mut completion = std::mem::take(&mut self.completion);
+        let mut wrap_off = false;
         let editor_bg = self.theme.colors().editor;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(editor_bg).inner_margin(egui::Margin::same(4)))
@@ -2320,6 +2321,8 @@ impl eframe::App for RustNoteApp {
                                             let lc = to_lc(p, doc);
                                             doc.column_sel = Some(crate::editor::column::ColumnSel { anchor: lc, head: lc });
                                             doc.column_dragging = true;
+                                            // Column blocks are straight rectangles: they need unwrapped lines
+                                            wrap_off |= word_wrap;
                                         } else {
                                             doc.column_sel = None;
                                         }
@@ -2569,6 +2572,10 @@ impl eframe::App for RustNoteApp {
         });
 
         self.completion = completion;
+        if wrap_off {
+            self.word_wrap = false;
+            self.set_notification("Word wrap turned off for column selection");
+        }
 
         // 6. Dialog Renderings
         let action = dialogs::render_find_replace(ctx, &mut self.find_replace);
