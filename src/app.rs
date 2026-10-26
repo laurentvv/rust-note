@@ -2486,7 +2486,7 @@ impl eframe::App for RustNoteApp {
                                 }
                             });
                             ui.separator();
-                            if ui.button(format!("Toggle Comment ({comment_prefix})")).clicked() {
+                            if ui.button(format!("{} ({comment_prefix})", tr("Toggle Comment"))).clicked() {
                                 let c = operations::toggle_comment(&doc.content, comment_prefix);
                                 doc.set_content(c);
                                 ui.close();

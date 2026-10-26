@@ -72,7 +72,7 @@ pub fn tr(s: &str) -> String {
     }
     if let Some(t) = tab {
         out.push('\t');
-        out.push_str(t);
+        out.push_str(&t.replace("Shift", "Maj"));
     }
     out
 }
