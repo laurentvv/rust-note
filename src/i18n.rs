@@ -41,7 +41,7 @@ pub fn tr(s: &str) -> String {
     if lang() == UiLang::English {
         return s.to_string();
     }
-    if s.starts_with("Jumped to '") {
+    if s.starts_with("Jumped to '") || s.starts_with("Found at line ") {
         return message(s);
     }
     let (head, tab) = match s.split_once('\t') {
@@ -96,6 +96,30 @@ fn message(s: &str) -> String {
         if let Some(rest) = s.strip_prefix(en) {
             return format!("{fr}{rest}");
         }
+    }
+    // Messages of the Find / Replace dialog
+    if let Some(r) = s.strip_prefix("Found at line ") {
+        return match r.strip_suffix(" (wrapped around the document)") {
+            Some(n) => format!("Trouvé à la ligne {n} (retour au début du document)"),
+            None => format!("Trouvé à la ligne {r}"),
+        };
+    }
+    if let Some(r) = s.strip_prefix("Can't find the text ") {
+        return format!("Texte introuvable : {r}");
+    }
+    if let Some(n) = s.strip_prefix("Count: ").and_then(|r| r.strip_suffix(" match(es) in the current document")) {
+        return format!("Total : {n} occurrence(s) dans le document actuel");
+    }
+    if let Some(n) = s.strip_prefix("Replace All: ").and_then(|r| r.strip_suffix(" occurrence(s) were replaced.")) {
+        return format!("Remplacer tout : {n} occurrence(s) remplacée(s).");
+    }
+    if let Some(r) = s.strip_prefix("Find All: ") {
+        if let Some((hits, docs)) = r.split_once(" hit(s) in ") {
+            return format!("Tout rechercher : {hits} résultat(s) dans {}", docs.replace(" document(s)", " document(s)"));
+        }
+    }
+    if let Some(r) = s.strip_prefix("Invalid regular expression: ") {
+        return format!("Expression régulière invalide : {r}");
     }
     if let Some(n) = s.strip_prefix("Replaced ").and_then(|r| r.strip_suffix(" occurrences")) {
         return format!("{n} occurrences remplacées");
@@ -287,6 +311,10 @@ fn fr(s: &str) -> Option<&'static str> {
         "Document has not been saved to disk yet" => "Le document n'est pas encore enregistré",
         "New document created" => "Nouveau document créé",
         "No recently closed tabs to restore" => "Aucun onglet récemment fermé à restaurer",
+        "Enter text to search for" => "Saisissez le texte à rechercher",
+        "Document is read-only" => "Le document est en lecture seule",
+        "Replaced 1 occurrence; next match selected" => "1 occurrence remplacée ; suivante sélectionnée",
+        "Replaced 1 occurrence; no more matches" => "1 occurrence remplacée ; plus aucune correspondance",
         "OK" => "OK",
         _ => return None,
     })
@@ -311,6 +339,10 @@ mod tests {
         assert_eq!(tr("Replaced 3 occurrences"), "3 occurrences remplacées");
         assert_eq!(tr("Saved as C:/x.txt"), "Enregistré sous C:/x.txt");
         assert_eq!(tr("Saved main.rs"), "Enregistré : main.rs");
+        assert_eq!(tr("Replace All: 3 occurrence(s) were replaced."), "Remplacer tout : 3 occurrence(s) remplacée(s).");
+        assert_eq!(tr("Found at line 7"), "Trouvé à la ligne 7");
+        assert_eq!(tr("Found at line 2 (wrapped around the document)"), "Trouvé à la ligne 2 (retour au début du document)");
+        assert_eq!(tr("Count: 2 match(es) in the current document"), "Total : 2 occurrence(s) dans le document actuel");
         assert_eq!(tr("Jumped to 'run' (line 4)"), "Saut à 'run' (ligne 4)");
         set_lang(UiLang::English);
         assert_eq!(tr("File"), "File");

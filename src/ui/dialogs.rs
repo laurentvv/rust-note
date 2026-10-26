@@ -180,7 +180,7 @@ pub fn render_find_replace(
 
             if let Some(ref msg) = state.status_message {
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new(msg).color(egui::Color32::LIGHT_BLUE));
+                ui.label(egui::RichText::new(tr(msg)).color(egui::Color32::LIGHT_BLUE));
             }
 
             if state.tab == FindTab::FindAll && !state.results.is_empty() {
