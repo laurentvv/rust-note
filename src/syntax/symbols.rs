@@ -217,12 +217,12 @@ fn extract_identifier_before(s: &str, delimiter: char) -> Option<String> {
 
 fn extract_first_word(s: &str) -> Option<String> {
     let word = s.split_whitespace().next()?;
-    let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
-    if clean.is_empty() {
-        None
-    } else {
-        Some(clean.to_string())
-    }
+    let clean: String = word
+        .trim_start_matches(|c: char| !c.is_alphanumeric() && c != '_')
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect();
+    if clean.is_empty() { None } else { Some(clean) }
 }
 
 #[cfg(test)]

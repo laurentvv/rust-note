@@ -27,6 +27,7 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - Zoom with `Ctrl`+mouse wheel, `Ctrl`+`+` / `-` / `0`.
 - Confirmation prompt before closing modified documents, also on window close.
 - **English / French interface** (View > Interface language), using familiar Notepad++ French terminology.
+- If Notepad++ is installed, its `functionList\*.xml` parsers (37 of 47 compile with the built-in PCRE-compatible engine) drive the Function List; the built-in rules are the fallback.
 - Function List for Rust, Python, JS/TS, Go, C-family, Ruby, Lua, PHP, shell, SQL tables and Markdown headings.
 - Session restore (reopens last files), recent files list, persistent settings (theme, zoom, wrap, gutter).
 
@@ -90,6 +91,11 @@ src/
 ```
 
 Run the test suite with `cargo test`.
+
+## Known limitations
+
+- Column selection treats a tab as one column and measures columns on the first wrapped row.
+- Some tooltips and formatted status messages are English-only in the French UI.
 
 ## License
 

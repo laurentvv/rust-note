@@ -47,6 +47,7 @@ pub struct RustNoteApp {
     pub settings: Settings,
     pub completion: CompletionState,
     pub show_shortcuts: bool,
+    symbol_cache: Option<(usize, u64, Language, Vec<crate::syntax::DocumentSymbol>)>,
     saved_settings: Settings,
 }
 
@@ -142,6 +143,7 @@ impl RustNoteApp {
             force_quit: false,
             completion: CompletionState::default(),
             show_shortcuts: false,
+            symbol_cache: None,
             saved_settings: settings.clone(),
             settings,
         };
@@ -1943,7 +1945,20 @@ impl eframe::App for RustNoteApp {
 
                     let active_idx = self.active_index;
                     if let Some(doc) = self.docs.get(active_idx) {
-                        let symbols = crate::syntax::extract_symbols(&doc.content, self.current_language);
+                        let hash = {
+                            use std::hash::{Hash, Hasher};
+                            let mut h = std::collections::hash_map::DefaultHasher::new();
+                            doc.content.hash(&mut h);
+                            h.finish()
+                        };
+                        let lang = self.current_language;
+                        let doc_id = doc.id;
+                        let fresh = !matches!(&self.symbol_cache, Some((i, hh, l, _)) if *i == doc_id && *hh == hash && *l == lang);
+                        if fresh {
+                            let syms = crate::syntax::fnlist::symbols_for(&doc.content, lang);
+                            self.symbol_cache = Some((doc_id, hash, lang, syms));
+                        }
+                        let symbols = self.symbol_cache.as_ref().map(|c| c.3.clone()).unwrap_or_default();
                         let filter_lower = self.symbol_filter.to_lowercase();
                         let filtered: Vec<_> = symbols
                             .into_iter()

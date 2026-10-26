@@ -32,19 +32,21 @@ fn file_stem(lang: Language) -> Option<&'static str> {
     })
 }
 
-fn search_dirs() -> Vec<PathBuf> {
+/// Candidate Notepad++ resource folders (`sub` is e.g. `autoCompletion` or `functionList`).
+#[must_use]
+pub fn search_dirs(sub: &str) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
         if let Some(p) = std::env::var_os(var) {
-            dirs.push(PathBuf::from(p).join("Notepad++").join("autoCompletion"));
+            dirs.push(PathBuf::from(p).join("Notepad++").join(sub));
         }
     }
     if let Some(p) = std::env::var_os("APPDATA") {
-        dirs.push(PathBuf::from(p).join("Notepad++").join("autoCompletion"));
+        dirs.push(PathBuf::from(p).join("Notepad++").join(sub));
     }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            dirs.push(dir.join("autoCompletion"));
+            dirs.push(dir.join(sub));
         }
     }
     dirs
@@ -87,7 +89,7 @@ pub fn dictionary(lang: Language) -> Vec<String> {
     if let Some(v) = map.get(stem) {
         return v.clone();
     }
-    let words = search_dirs()
+    let words = search_dirs("autoCompletion")
         .into_iter()
         .map(|d| d.join(format!("{stem}.xml")))
         .find_map(|p| std::fs::read_to_string(p).ok())
