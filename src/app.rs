@@ -1488,6 +1488,7 @@ impl eframe::App for RustNoteApp {
                         Language::Ini,
                         Language::Diff,
                         Language::Makefile,
+                        Language::Nim,
                     ];
                     ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
                         for l in langs {

@@ -46,6 +46,7 @@ pub enum Language {
     Ini,
     Diff,
     Makefile,
+    Nim,
 }
 
 impl std::str::FromStr for Language {
@@ -86,6 +87,7 @@ impl std::str::FromStr for Language {
             "ini" | "cfg" => Self::Ini,
             "diff" | "patch" => Self::Diff,
             "makefile" | "make" => Self::Makefile,
+            "nim" => Self::Nim,
             _ => Self::PlainText,
         })
     }
@@ -129,6 +131,7 @@ impl Language {
             Self::Ini => "INI / Config",
             Self::Diff => "Diff / Patch",
             Self::Makefile => "Makefile",
+            Self::Nim => "Nim",
         }
     }
 
@@ -188,6 +191,7 @@ impl Language {
             "ini" | "inf" | "url" | "cfg" | "conf" | "cf" | "properties" | "gitconfig" | "gitattributes" | "gitmodules" | "editorconfig" => Self::Ini,
             "diff" | "patch" => Self::Diff,
             "mk" | "mak" => Self::Makefile,
+            "nim" | "nims" | "nimble" => Self::Nim,
             _ => {
                 let filename = path
                     .as_ref()
@@ -236,7 +240,8 @@ impl Language {
             | Self::Perl
             | Self::R
             | Self::GdScript
-            | Self::Makefile => "#",
+            | Self::Makefile
+            | Self::Nim => "#",
             Self::Sql | Self::Lua => "--",
             Self::Batch => "REM ",
             Self::Assembly | Self::Ini => ";",
@@ -377,6 +382,15 @@ impl Language {
                 "absolute", "relative", "fixed", "solid", "transparent", "hidden", "bold", "normal",
             ],
             Self::Html | Self::Xml => &[],
+            Self::Nim => &[
+                "addr", "and", "as", "asm", "bind", "block", "break", "case", "cast", "concept", "const",
+                "continue", "converter", "defer", "discard", "distinct", "div", "do", "elif", "else", "end",
+                "enum", "except", "export", "finally", "for", "from", "func", "if", "import", "in", "include",
+                "interface", "is", "isnot", "iterator", "let", "macro", "method", "mixin", "mod", "nil",
+                "not", "notin", "object", "of", "or", "out", "proc", "ptr", "raise", "ref", "return", "shl",
+                "shr", "static", "template", "try", "tuple", "type", "using", "var", "when", "while", "xor",
+                "yield", "true", "false",
+            ],
             Self::Makefile => &["ifeq", "ifneq", "ifdef", "ifndef", "else", "endif", "include", "define", "endef", "export"],
             _ => &[],
         }

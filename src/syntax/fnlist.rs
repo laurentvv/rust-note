@@ -46,6 +46,7 @@ fn file_stem(lang: Language) -> Option<&'static str> {
         Language::GdScript => "gdscript",
         Language::Ini => "ini",
         Language::Makefile => "makefile",
+        Language::Nim => "nim",
         Language::Toml => "toml",
         Language::Assembly => "asm",
         _ => return None,
