@@ -154,7 +154,8 @@ impl RustNoteApp {
     }
 
     pub fn set_notification(&mut self, msg: impl Into<String>) {
-        self.status_notification = Some((msg.into(), std::time::Instant::now()));
+        let msg: String = msg.into();
+        self.status_notification = Some((tr(&msg), std::time::Instant::now()));
     }
 
     pub fn copy_full_path(&mut self, ctx: &Context) {
@@ -630,6 +631,54 @@ impl RustNoteApp {
         self.find_replace.focus_query = true;
     }
 
+    /// The selected text, or the word under the caret.
+    pub fn current_word(&self) -> String {
+        let Some(doc) = self.active_doc() else { return String::new() };
+        let chars: Vec<char> = doc.content.chars().collect();
+        if doc.selection_len > 0 {
+            return chars.iter().skip(doc.cursor_char).take(doc.selection_len).collect::<String>().trim().to_string();
+        }
+        let at = doc.cursor_char.min(chars.len());
+        let mut s = at;
+        while s > 0 && is_word_char(chars[s - 1]) {
+            s -= 1;
+        }
+        let mut e = at;
+        while e < chars.len() && is_word_char(chars[e]) {
+            e += 1;
+        }
+        chars[s..e].iter().collect()
+    }
+
+    /// Opens `base` + the current word in the default browser.
+    pub fn web_lookup(&mut self, ctx: &Context, base: &str) {
+        let word = self.current_word();
+        if word.is_empty() {
+            self.set_notification("Place the caret on a word first");
+            return;
+        }
+        ctx.open_url(egui::OpenUrl::new_tab(format!("{base}{}", urlencoding::encode(&word))));
+    }
+
+    pub fn trim_and_save(&mut self) {
+        self.apply_op(|d| operations::trim_trailing_spaces(&d.content));
+        self.save_current();
+    }
+
+    /// Opens the active file in a second rust-note process.
+    pub fn open_in_new_instance(&mut self) {
+        let Some(path) = self.active_doc().and_then(|d| d.path.clone()) else {
+            self.set_notification("Document has not been saved to disk yet");
+            return;
+        };
+        match std::env::current_exe().and_then(|exe| {
+            std::process::Command::new(exe).arg("-multiInst").arg("-nosession").arg(path).spawn()
+        }) {
+            Ok(_) => self.set_notification("Opened in a new instance"),
+            Err(e) => self.set_notification(format!("Cannot start a new instance: {e}")),
+        }
+    }
+
     pub fn zoom(&mut self, delta: f32) {
         self.font_size = (self.font_size + delta).clamp(8.0, 40.0);
     }
@@ -717,6 +766,27 @@ impl RustNoteApp {
         // Line / text operations
         if hit(Modifiers::CTRL, Key::D) {
             self.apply_op(|d| operations::duplicate_line(&d.content, d.cursor_line));
+        }
+        // Esc closes the open Find / Go to Line dialogs
+        if (self.goto_line.is_open || self.find_replace.is_open) && hit(Modifiers::NONE, Key::Escape) {
+            if self.goto_line.is_open {
+                self.goto_line.is_open = false;
+            } else {
+                self.find_replace.is_open = false;
+            }
+        }
+        // Commands carried over from a typical Notepad++ setup (Run / Macro menus)
+        if hit(Modifiers::ALT | Modifiers::SHIFT, Key::S) {
+            self.trim_and_save();
+        }
+        if hit(Modifiers::ALT, Key::F1) {
+            self.web_lookup(ctx, "https://www.php.net/");
+        }
+        if hit(Modifiers::ALT, Key::F3) {
+            self.web_lookup(ctx, "https://en.wikipedia.org/wiki/Special:Search?search=");
+        }
+        if hit(Modifiers::ALT, Key::F6) {
+            self.open_in_new_instance();
         }
         if hit(Modifiers::CTRL, Key::L) {
             self.apply_op(|d| {
@@ -812,7 +882,7 @@ fn completion_candidates(content: &str, caret: usize, lang: Language, forced: bo
         start -= 1;
     }
     let prefix: String = chars[start..end].iter().collect();
-    if prefix.chars().count() < if forced { 1 } else { 2 } {
+    if prefix.chars().count() < 1 {
         return Vec::new();
     }
     let ci = matches!(lang, Language::Sql | Language::Batch);
@@ -824,6 +894,12 @@ fn completion_candidates(content: &str, caret: usize, lang: Language, forced: bo
     for kw in lang.keywords() {
         if matches_prefix(kw) {
             set.insert((*kw).to_string());
+        }
+    }
+    let _ = forced;
+    for kw in crate::syntax::dict::dictionary(lang) {
+        if matches_prefix(&kw) {
+            set.insert(kw);
         }
     }
     let mut word = String::new();
@@ -1538,6 +1614,29 @@ impl eframe::App for RustNoteApp {
                         self.show_summary();
                         ui.close();
                     }
+                    ui.separator();
+                    if ui.button(tr("Trim Trailing Space and Save\tAlt+Shift+S")).clicked() {
+                        self.trim_and_save();
+                        ui.close();
+                    }
+                    if ui.button(tr("Open in New Instance\tAlt+F6")).clicked() {
+                        self.open_in_new_instance();
+                        ui.close();
+                    }
+                    ui.menu_button(tr("Help on Internet"), |ui| {
+                        if ui.button(tr("Get PHP help\tAlt+F1")).clicked() {
+                            self.web_lookup(ctx, "https://www.php.net/");
+                            ui.close();
+                        }
+                        if ui.button(tr("Wikipedia Search\tAlt+F3")).clicked() {
+                            self.web_lookup(ctx, "https://en.wikipedia.org/wiki/Special:Search?search=");
+                            ui.close();
+                        }
+                        if ui.button(tr("Search the web")).clicked() {
+                            self.web_lookup(ctx, "https://duckduckgo.com/?q=");
+                            ui.close();
+                        }
+                    });
                 });
 
                 // --- HELP (?) ---
@@ -1764,7 +1863,7 @@ impl eframe::App for RustNoteApp {
                     let icon = language_icon(doc.language);
 
                     ui.label(
-                        RichText::new(format!("Ln {}, Col {}", doc.cursor_line, doc.cursor_col))
+                        RichText::new(format!("{} {}, {} {}", tr("Ln"), doc.cursor_line, tr("Col"), doc.cursor_col))
                             .strong()
                             .color(tc(light, 250, 179, 135)),
                     );
@@ -1772,7 +1871,7 @@ impl eframe::App for RustNoteApp {
                         let (l1, l2, c1, c2) = cs.bounds();
                         ui.separator();
                         ui.label(
-                            RichText::new(format!("Column: {}×{}", l2 - l1 + 1, c2 - c1))
+                            RichText::new(format!("{}: {}×{}", tr("Column"), l2 - l1 + 1, c2 - c1))
                                 .strong()
                                 .color(tc(light, 245, 194, 231)),
                         );
@@ -1780,14 +1879,14 @@ impl eframe::App for RustNoteApp {
                     if doc.selection_len > 0 {
                         ui.separator();
                         ui.label(
-                            RichText::new(format!("Sel: {}", doc.selection_len))
+                            RichText::new(format!("{}: {}", tr("Sel"), doc.selection_len))
                                 .strong()
                                 .color(tc(light, 245, 194, 231)),
                         );
                     }
                     ui.separator();
                     ui.label(
-                        RichText::new(format!("📊 {chars} chars | {lines} lines | {bytes} B"))
+                        RichText::new(format!("📊 {chars} {} | {lines} {} | {bytes} {}", tr("chars"), tr("lines"), tr("B")))
                             .color(tc(light, 166, 173, 200)),
                     );
                     ui.separator();
@@ -1802,7 +1901,7 @@ impl eframe::App for RustNoteApp {
                     );
                     ui.separator();
                     if doc.is_readonly {
-                        ui.label(RichText::new("🔒 READ ONLY").strong().color(tc(light, 243, 139, 168)));
+                        ui.label(RichText::new(tr("🔒 READ ONLY")).strong().color(tc(light, 243, 139, 168)));
                     } else {
                         ui.label(RichText::new("✏ INS").strong().color(tc(light, 166, 227, 161)));
                     }
@@ -1824,7 +1923,7 @@ impl eframe::App for RustNoteApp {
                 .max_width(450.0)
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
-                        ui.heading("📋 Function List");
+                        ui.heading(tr("📋 Function List"));
                         ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button(tr("×")).clicked() {
                                 self.show_function_list = false;
@@ -1852,7 +1951,7 @@ impl eframe::App for RustNoteApp {
                             .collect();
 
                         ui.label(
-                            RichText::new(format!("Symbols: {}", filtered.len()))
+                            RichText::new(format!("{}: {}", tr("Symbols"), filtered.len()))
                                 .color(tc(light, 166, 173, 200)),
                         );
                         ui.separator();
@@ -1869,7 +1968,7 @@ impl eframe::App for RustNoteApp {
                                     };
 
                                     let label = RichText::new(format!("{} {}", sym.kind.icon(), sym.name)).color(color);
-                                    if ui.button(label).on_hover_text(format!("Jump to line {}", sym.line)).clicked() {
+                                    if ui.button(label).on_hover_text(format!("{} {}", tr("Jump to line"), sym.line)).clicked() {
                                         if let Some(doc_mut) = self.docs.get_mut(active_idx) {
                                             doc_mut.cursor_line = sym.line;
                                             doc_mut.cursor_col = 1;
@@ -2538,9 +2637,9 @@ mod tests {
 al";
         let caret = text.chars().count();
         let items = completion_candidates(text, caret, Language::Rust, false);
-        assert_eq!(items, vec!["alphabet".to_string()]);
+        assert!(items.contains(&"alphabet".to_string()));
         let items = completion_candidates("le", 2, Language::Rust, false);
-        assert_eq!(items, vec!["let".to_string()]);
-        assert!(completion_candidates("a", 1, Language::Rust, false).is_empty());
+        assert!(items.contains(&"let".to_string()));
+        assert!(completion_candidates("", 0, Language::Rust, false).is_empty());
     }
 }

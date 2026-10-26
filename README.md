@@ -17,6 +17,8 @@ rust-note is a lightweight desktop editor built with [egui/eframe](https://githu
 - **Syntax highlighting** for Rust, C/C++, C#, Java, Python, JavaScript/TypeScript, Go, SQL, HTML/XML, CSS, JSON, YAML, TOML, shell, PowerShell, Batch, Markdown and more.
 - Line-number gutter aligned with wrapped lines, current-line highlight, word wrap toggle.
 - **Auto-completion** popup (language keywords + words from the document; `Ctrl+Space`, `Tab`/`Enter` to accept).
+- If Notepad++ is installed, its `autoCompletion\*.xml` dictionaries are read at runtime to enrich completions (nothing is bundled).
+- Tools menu: *Trim Trailing Space and Save* (`Alt+Shift+S`), *Open in New Instance* (`Alt+F6`), look up the current word on the web (`Alt+F1` PHP manual, `Alt+F3` Wikipedia).
 - **Auto-indent** on Enter (extra level after `{`, `(`, `[`, `:`).
 - Full **undo / redo** history with typing grouped into natural steps.
 - **Column (rectangular) selection** with `Alt`+drag: type, delete, copy, cut and paste across all selected lines.

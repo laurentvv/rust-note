@@ -219,7 +219,7 @@ pub fn render_go_to_line(
         .resizable(false)
         .default_size([280.0, 140.0])
         .show(ctx, |ui| {
-            ui.label(format!("Line number (1 - {}):", state.max_lines.max(1)));
+            ui.label(format!("{} (1 - {}):", tr("Line number"), state.max_lines.max(1)));
             let response = ui.text_edit_singleline(&mut state.line_input);
             if state.focus {
                 response.request_focus();
@@ -261,18 +261,18 @@ pub fn render_about(ctx: &Context, state: &mut AboutState) {
     let mut open_window = true;
     let mut close_requested = false;
 
-    Window::new("About rust-note")
+    Window::new(tr("About rust-note"))
         .open(&mut open_window)
         .resizable(false)
         .default_size([420.0, 220.0])
         .show(ctx, |ui| {
             ui.heading("rust-note v0.1.0");
-            ui.label("A modern, elegant, and high-performance code editor built with Rust and egui.");
+            ui.label(tr("A modern, elegant, and high-performance code editor built with Rust and egui."));
             ui.separator();
-            ui.label("Author: Laurent VOLFF");
-            ui.label("Engine Architecture: High-performance multi-tab text buffer");
+            ui.label(format!("{} Laurent VOLFF", tr("Author:")));
+            ui.label(tr("Engine Architecture: High-performance multi-tab text buffer"));
             ui.separator();
-            ui.hyperlink_to("Source & Docs in D:\\GIT\\rust-note", "https://github.com/rust-note/rust-note");
+            ui.hyperlink_to(tr("Source & Docs"), "https://github.com/laurentvv/rust-note");
             ui.add_space(8.0);
             if ui.button(tr("OK")).clicked() {
                 close_requested = true;
@@ -293,21 +293,21 @@ pub fn render_summary(ctx: &Context, state: &mut SummaryState) {
     let mut open_window = true;
     let mut close_requested = false;
 
-    Window::new("Document Summary")
+    Window::new(tr("Document Summary"))
         .open(&mut open_window)
         .resizable(false)
         .default_size([380.0, 240.0])
         .show(ctx, |ui| {
-            ui.heading("Current Document Properties");
+            ui.heading(tr("Current Document Properties"));
             ui.separator();
-            ui.label(format!("File Path: {}", state.path));
-            ui.label(format!("Encoding:  {}", state.encoding));
-            ui.label(format!("EOL:       {}", state.eol));
+            ui.label(format!("{} {}", tr("File Path:"), state.path));
+            ui.label(format!("{} {}", tr("Encoding:"), state.encoding));
+            ui.label(format!("{} {}", tr("EOL:"), state.eol));
             ui.separator();
-            ui.label(format!("Total Characters: {}", state.char_count));
-            ui.label(format!("Total Words:      {}", state.word_count));
-            ui.label(format!("Total Lines:      {}", state.line_count));
-            ui.label(format!("Total Bytes:      {} bytes", state.byte_count));
+            ui.label(format!("{} {}", tr("Total Characters:"), state.char_count));
+            ui.label(format!("{} {}", tr("Total Words:"), state.word_count));
+            ui.label(format!("{} {}", tr("Total Lines:"), state.line_count));
+            ui.label(format!("{} {}", tr("Total Bytes:"), state.byte_count));
             ui.add_space(8.0);
             if ui.button(tr("Close")).clicked() {
                 close_requested = true;

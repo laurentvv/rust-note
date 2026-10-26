@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+pub mod dict;
 pub mod highlight;
 pub mod symbols;
 pub use symbols::{extract_symbols, DocumentSymbol, SymbolKind};
