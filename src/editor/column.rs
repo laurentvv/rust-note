@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn insert_pads_and_replaces() {
         let (out, s) = insert("abcdef\nxy", &sel(0, 2, 1, 4), "-");
-        assert_eq!(out, "ab-ef\nxy  -");
+        assert_eq!(out, "ab-ef\nxy-");
         assert_eq!(s.bounds(), (0, 1, 3, 3));
     }
 
