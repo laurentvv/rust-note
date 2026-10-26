@@ -1759,7 +1759,7 @@ impl eframe::App for RustNoteApp {
                     if ui.button(tr("➖")).on_hover_text(tr("Zoom out (Ctrl+Num-)")).clicked() {
                         self.font_size = (self.font_size - 2.0).max(8.0);
                     }
-                    if ui.selectable_label(self.word_wrap, tr("↩ Wrap")).clicked() {
+                    if ui.selectable_label(self.word_wrap, tr("↩ Wrap")).on_hover_text(tr("Word Wrap")).clicked() {
                         self.word_wrap = !self.word_wrap;
                     }
                 });
@@ -1773,7 +1773,9 @@ impl eframe::App for RustNoteApp {
                             for t in EditorTheme::ALL {
                                 ui.selectable_value(&mut chosen, t, t.name());
                             }
-                        });
+                        })
+                        .response
+                        .on_hover_text(tr("Theme"));
                     if chosen != self.theme {
                         self.theme = chosen;
                         self.apply_theme(ctx);
