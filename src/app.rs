@@ -241,7 +241,7 @@ impl RustNoteApp {
                 if let Err(e) = doc.save_to(&path) {
                     self.set_notification(format!("Save error: {e}"));
                 } else {
-                    self.set_notification(format!("Saved as {}", path.display()));
+                    self.set_notification(format!("Saved as {}", path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().to_string())));
                 }
             }
         }
@@ -2534,10 +2534,20 @@ impl eframe::App for RustNoteApp {
 
         // 6. Dialog Renderings
         let action = dialogs::render_find_replace(ctx, &mut self.find_replace);
+        if !matches!(action, DialogAction::None) {
+            // The dialog shows the result message on the next frame: make sure one is drawn
+            ctx.request_repaint();
+        }
         match action {
             DialogAction::FindNext => self.execute_find_next(),
             DialogAction::ReplaceAll => self.execute_replace_all(),
-            DialogAction::ReplaceOne => self.execute_find_next(),
+            DialogAction::ReplaceOne => self.execute_replace_one(),
+            DialogAction::FindPrev => {
+                self.execute_find(false);
+            }
+            DialogAction::Count => self.execute_count(),
+            DialogAction::FindAllOpen => self.execute_find_all_open(),
+            DialogAction::JumpTo(d, s, e) => self.jump_to_hit(d, s, e),
             _ => {}
         }
 

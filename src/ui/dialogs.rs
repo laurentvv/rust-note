@@ -187,7 +187,7 @@ pub fn render_find_replace(
                 ui.separator();
                 egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
                     for hit in &state.results {
-                        let text = format!("{}  (line {}):  {}", hit.doc_title, hit.line, hit.preview);
+                        let text = format!("{}  ({} {}):  {}", hit.doc_title, tr("line"), hit.line, hit.preview);
                         if ui.selectable_label(false, egui::RichText::new(text).monospace()).clicked() {
                             action = DialogAction::JumpTo(hit.doc_index, hit.byte_start, hit.byte_end);
                         }

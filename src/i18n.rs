@@ -315,6 +315,7 @@ fn fr(s: &str) -> Option<&'static str> {
         "Document is read-only" => "Le document est en lecture seule",
         "Replaced 1 occurrence; next match selected" => "1 occurrence remplacée ; suivante sélectionnée",
         "Replaced 1 occurrence; no more matches" => "1 occurrence remplacée ; plus aucune correspondance",
+        "line" => "ligne",
         "OK" => "OK",
         _ => return None,
     })
