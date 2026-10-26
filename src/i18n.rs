@@ -55,7 +55,7 @@ pub fn tr(s: &str) -> String {
         Some(c) => (c, "..."),
         None => (rest, ""),
     };
-    let translated = fr(core).unwrap_or(core);
+    let translated = fr(core).map_or_else(|| message(core), str::to_string);
     let mut out = format!("{icon}{translated}{dots}");
     if let Some(h) = hint {
         out.push_str(h);
@@ -65,6 +65,35 @@ pub fn tr(s: &str) -> String {
         out.push_str(t);
     }
     out
+}
+
+/// Translates status messages that embed a value (`"Saved as C:\\x"`, `"Replaced 3 occurrences"`...).
+fn message(s: &str) -> String {
+    const PREFIXES: [(&str, &str); 11] = [
+        ("Error opening ", "Erreur d'ouverture de "),
+        ("Export error: ", "Erreur d'export : "),
+        ("Exported HTML to ", "HTML exporté vers "),
+        ("Exported RTF to ", "RTF exporté vers "),
+        ("Jumped to line ", "Saut à la ligne "),
+        ("Opened ", "Ouvert : "),
+        ("Restored tab ", "Onglet restauré : "),
+        ("Save error: ", "Erreur d'enregistrement : "),
+        ("Saved as ", "Enregistré sous "),
+        ("Theme: ", "Thème : "),
+        ("Cannot start a new instance: ", "Impossible de lancer une nouvelle instance : "),
+    ];
+    for (en, fr) in PREFIXES {
+        if let Some(rest) = s.strip_prefix(en) {
+            return format!("{fr}{rest}");
+        }
+    }
+    if let Some(n) = s.strip_prefix("Replaced ").and_then(|r| r.strip_suffix(" occurrences")) {
+        return format!("{n} occurrences remplacées");
+    }
+    if let Some(n) = s.strip_prefix("Saved ").and_then(|r| r.strip_suffix(" documents")) {
+        return format!("{n} documents enregistrés");
+    }
+    s.to_string()
 }
 
 fn fr(s: &str) -> Option<&'static str> {
@@ -232,6 +261,16 @@ fn fr(s: &str) -> Option<&'static str> {
         "Document closed" => "Document fermé",
         "Place the caret on a word first" => "Placez le curseur sur un mot",
         "Opened in a new instance" => "Ouvert dans une nouvelle instance",
+        "All documents closed" => "Tous les documents sont fermés",
+        "Closed other documents" => "Les autres documents sont fermés",
+        "Copied DEC to clipboard" => "DEC copié dans le presse-papiers",
+        "Copied HEX to clipboard" => "HEX copié dans le presse-papiers",
+        "Copied directory path to clipboard" => "Chemin du dossier copié",
+        "Copied filename to clipboard" => "Nom du fichier copié",
+        "Copied full path to clipboard" => "Chemin complet copié",
+        "Document has not been saved to disk yet" => "Le document n'est pas encore enregistré",
+        "New document created" => "Nouveau document créé",
+        "No recently closed tabs to restore" => "Aucun onglet récemment fermé à restaurer",
         "OK" => "OK",
         _ => return None,
     })
@@ -248,6 +287,8 @@ mod tests {
         assert_eq!(tr("📂 Open"), "📂 Ouvrir");
         assert_eq!(tr("Save (Ctrl+S)"), "Enregistrer (Ctrl+S)");
         assert_eq!(tr("Unknown thing"), "Unknown thing");
+        assert_eq!(tr("Replaced 3 occurrences"), "3 occurrences remplacées");
+        assert_eq!(tr("Saved as C:/x.txt"), "Enregistré sous C:/x.txt");
         set_lang(UiLang::English);
         assert_eq!(tr("File"), "File");
     }
