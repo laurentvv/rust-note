@@ -352,7 +352,7 @@ fn inline_calls(
     cut: &mut bool,
     nl: &str,
 ) -> String {
-    const MAX_UNROLL: usize = 2;
+    const MAX_UNROLL: usize = 3;
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
     while let Some(i) = rest.find("(?&") {

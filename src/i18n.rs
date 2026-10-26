@@ -408,4 +408,28 @@ mod tests {
         missing.dedup();
         assert!(missing.is_empty(), "untranslated UI strings: {missing:#?}");
     }
+
+    /// Every status message the application can show must have a French form.
+    #[test]
+    fn all_status_messages_are_translated() {
+        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let messages = [
+            "All documents closed", "Closed other documents", "Copied DEC to clipboard",
+            "Copied HEX to clipboard", "Copied directory path to clipboard", "Copied filename to clipboard",
+            "Copied full path to clipboard", "Document closed", "Document has not been saved to disk yet",
+            "New document created", "No recently closed tabs to restore", "Place the caret on a word first",
+            "Error opening x.txt: denied", "Export error: denied", "Exported HTML to a.html", "Exported RTF to a.rtf",
+            "Jumped to 'run' (line 3)", "Jumped to line 3", "Opened a.txt", "Replaced 4 occurrences",
+            "Restored tab 'a.txt'", "Save error: denied", "Saved as a.txt", "Saved 2 documents", "Saved a.txt",
+            "Theme: Monokai", "Document is read-only", "Enter text to search for", "Can't find the text \"x\"",
+            "Found at line 2", "Found at line 2 (wrapped around the document)",
+            "Count: 3 match(es) in the current document", "Replace All: 3 occurrence(s) were replaced.",
+            "Find All: 4 hit(s) in 2 document(s)", "Replaced 1 occurrence; next match selected",
+            "Replaced 1 occurrence; no more matches", "Opened in a new instance",
+        ];
+        set_lang(UiLang::French);
+        let untranslated: Vec<&str> = messages.iter().copied().filter(|m| tr(m) == *m).collect();
+        set_lang(UiLang::English);
+        assert!(untranslated.is_empty(), "untranslated messages: {untranslated:#?}");
+    }
 }
