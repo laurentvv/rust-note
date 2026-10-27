@@ -8,7 +8,7 @@ description = "Clean-room high-performance code and text editor in Rust (Scintil
 [dependencies]
 base64 = "0.23.1"
 chrono = "0.4.40"
-eframe = { version = "0.33.3", default-features = false, features = ["default_fonts", "glow"] }
+eframe = { version = "0.37.0", default-features = false, features = ["default_fonts", "glow"] }
 encoding_rs = "0.8.35"
 regex = "1.12.3"
 rfd = "0.17.2"

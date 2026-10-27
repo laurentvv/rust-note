@@ -818,7 +818,7 @@ impl RustNoteApp {
         if hit(Modifiers::CTRL, Key::PageUp) && !self.docs.is_empty() {
             self.active_index = (self.active_index + self.docs.len() - 1) % self.docs.len();
         }
-        let scroll = ctx.input(|i| (i.modifiers.ctrl, i.raw_scroll_delta.y));
+        let scroll = ctx.input(|i| (i.modifiers.ctrl, i.smooth_scroll_delta.y));
         if scroll.0 && scroll.1 != 0.0 {
             self.zoom(scroll.1.signum());
         }
@@ -874,7 +874,8 @@ impl RustNoteApp {
 }
 
 impl eframe::App for RustNoteApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+    /// Non-UI work: input handling, shortcuts, session persistence.
+    fn logic(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         if self.active_index >= self.docs.len() {
             self.active_index = self.docs.len().saturating_sub(1);
         }
@@ -886,7 +887,16 @@ impl eframe::App for RustNoteApp {
         self.handle_shortcuts(ctx);
 
         // Drag & drop files to open them
-        let dropped: Vec<PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect());
+        let dropped: Vec<PathBuf> = ctx.input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|f| {
+                    let p = f.path();
+                    (!p.as_os_str().is_empty()).then(|| p.to_path_buf())
+                })
+                .collect()
+        });
         for p in dropped {
             self.open_path(p);
         }
@@ -945,18 +955,20 @@ impl eframe::App for RustNoteApp {
                 self.settings = cur;
             }
         }
+    }
 
-        // UI: each panel is rendered by its dedicated ui::* module.
-        self.render_menu_bar(ctx);
-        self.render_toolbar(ctx);
+    /// UI: each panel is rendered by its dedicated ui::* module.
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.render_menu_bar(ui);
+        self.render_toolbar(ui);
         if !self.cli_args.no_tab_bar {
-            self.render_tab_bar(ctx);
+            self.render_tab_bar(ui);
         }
-        self.render_status_bar(ctx);
+        self.render_status_bar(ui);
         if self.show_function_list {
-            self.render_function_list(ctx);
+            self.render_function_list(ui);
         }
-        self.render_editor(ctx);
-        self.render_dialogs(ctx);
+        self.render_editor(ui);
+        self.render_dialogs(ui.ctx());
     }
 }

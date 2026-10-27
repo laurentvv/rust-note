@@ -3,16 +3,16 @@
 use crate::app::RustNoteApp;
 use crate::i18n::tr;
 use crate::ui::tc;
-use eframe::egui::{self, Context, Layout, RichText, ScrollArea};
+use eframe::egui::{self, Layout, RichText, ScrollArea, Ui};
 
 impl RustNoteApp {
-    pub(crate) fn render_function_list(&mut self, _ctx: &Context) {
+    pub(crate) fn render_function_list(&mut self, ui: &mut Ui) {
         let light = !self.theme.is_dark();
-        egui::SidePanel::right("function_list_sidebar")
-            .default_width(240.0)
-            .min_width(180.0)
-            .max_width(450.0)
-            .show(_ctx, |ui| {
+        egui::Panel::right("function_list_sidebar")
+            .default_size(240.0)
+            .min_size(180.0)
+            .max_size(450.0)
+            .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.heading(tr("📋 Function List"));
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {

@@ -4,11 +4,12 @@ use crate::app::RustNoteApp;
 use crate::i18n::tr;
 use crate::ui::dialogs::FindTab;
 use crate::ui::themes::EditorTheme;
-use eframe::egui::{self, Context, Layout};
+use eframe::egui::{self, Context, Layout, Ui};
 
 impl RustNoteApp {
-    pub(crate) fn render_toolbar(&mut self, ctx: &Context) {
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+    pub(crate) fn render_toolbar(&mut self, ui: &mut Ui) {
+        let ctx: Context = ui.ctx().clone();
+        egui::Panel::top("toolbar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 // Group 1: Files
                 ui.horizontal(|ui| {
@@ -103,7 +104,7 @@ impl RustNoteApp {
                         .on_hover_text(tr("Theme"));
                     if chosen != self.theme {
                         self.theme = chosen;
-                        self.apply_theme(ctx);
+                        self.apply_theme(&ctx);
                     }
                 });
             });

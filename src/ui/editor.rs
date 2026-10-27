@@ -9,20 +9,20 @@ use crate::i18n::tr;
 use crate::plugins;
 use crate::syntax::highlight::highlight as syntax_highlight;
 use crate::syntax::Language;
-use eframe::egui::{self, Color32, Context, FontId, ScrollArea};
+use eframe::egui::{self, Color32, FontId, ScrollArea, Ui};
 
 fn layout_font_id(size: f32) -> FontId {
     FontId::monospace(size)
 }
 
 impl RustNoteApp {
-    pub(crate) fn render_editor(&mut self, ctx: &Context) {
+    pub(crate) fn render_editor(&mut self, ui: &mut Ui) {
         let mut completion = std::mem::take(&mut self.completion);
         let mut wrap_off = false;
         let editor_bg = self.theme.colors().editor;
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(editor_bg).inner_margin(egui::Margin::same(4)))
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 let active_idx = self.active_index;
                 if active_idx >= self.docs.len() {
                     return;
@@ -69,7 +69,7 @@ impl RustNoteApp {
                             Some(egui::TextWrapMode::Extend)
                         };
 
-                        let editor_id = egui::Id::new(("editor", doc.id));
+                        let editor_id = egui::Id::unique(("editor", doc.id));
                         let pending = doc.pending_selection.take();
                         if let Some((a, b)) = pending {
                             let mut state = egui::text_edit::TextEditState::load(ui.ctx(), editor_id).unwrap_or_default();
@@ -192,7 +192,10 @@ impl RustNoteApp {
                         if enter_pressed {
                             let mut state = egui::text_edit::TextEditState::load(ui.ctx(), editor_id).unwrap_or_default();
                             if let Some(range) = state.cursor.char_range() {
-                                let (a, b) = (range.primary.index.min(range.secondary.index), range.primary.index.max(range.secondary.index));
+                                let (a, b) = (
+                    usize::from(range.primary.index).min(usize::from(range.secondary.index)),
+                    usize::from(range.primary.index).max(usize::from(range.secondary.index)),
+                );
                                 let chars: Vec<char> = doc.content.chars().collect();
                                 let a = a.min(chars.len());
                                 let b = b.min(chars.len());
@@ -241,7 +244,7 @@ impl RustNoteApp {
                                     .text_color(pal.text)
                                     .desired_width(f32::INFINITY)
                                     .min_size(egui::Vec2::new(editor_avail_size.x, editor_avail_size.y))
-                                    .frame(false)
+                                    .frame(egui::Frame::NONE)
                                     .interactive(!doc.is_readonly)
                                     .layouter(&mut layouter)
                                     .lock_focus(true)
@@ -255,11 +258,11 @@ impl RustNoteApp {
                                 // Synchronize cursor position (Ln / Col) from text selection state
                                 let cursor_range = output.state.cursor.char_range();
                                 if let Some(range) = cursor_range {
-                                    let (line, col) = doc.line_col_from_char_index(range.primary.index);
+                                    let (line, col) = doc.line_col_from_char_index(usize::from(range.primary.index));
                                     doc.cursor_line = line;
                                     doc.cursor_col = col;
-                                    doc.cursor_char = range.primary.index.min(range.secondary.index);
-                                    doc.selection_len = range.primary.index.abs_diff(range.secondary.index);
+                                    doc.cursor_char = usize::from(range.primary.index.min(range.secondary.index));
+                                    doc.selection_len = range.primary.index.0.abs_diff(range.secondary.index.0);
                                 }
 
                                 let galley_pos = output.galley_pos;
@@ -291,7 +294,7 @@ impl RustNoteApp {
                                     let to_lc = |p: egui::Pos2, doc: &Document| -> (usize, usize) {
                                         let rel = p - output.galley_pos;
                                         let c = output.galley.cursor_from_pos(rel);
-                                        let (line, _) = doc.line_col_from_char_index(c.index);
+                                        let (line, _) = doc.line_col_from_char_index(usize::from(c.index));
                                         let line_start = doc.char_index_of_line(line);
                                         // On the first row of a line the column follows the pointer (virtual space
                                         // allowed); on wrapped continuation rows it is the real offset in the line.
@@ -303,7 +306,7 @@ impl RustNoteApp {
                                         let col = if rel.y <= first_row {
                                             (rel.x / cw).round().max(0.0) as usize
                                         } else {
-                                            c.index.saturating_sub(line_start)
+                                            c.index.0.saturating_sub(line_start)
                                         };
                                         (line - 1, col)
                                     };
@@ -358,7 +361,7 @@ impl RustNoteApp {
                                                 );
                                                 ui.painter().rect_filled(rect, 0.0, fill);
                                             }
-                                            if placed.row.ends_with_newline {
+                                            if placed.ends_with_newline {
                                                 logical += 1;
                                                 new_line = true;
                                             }
@@ -375,16 +378,16 @@ impl RustNoteApp {
                                         && doc.column_sel.is_none()
                                         && range.primary == range.secondary
                                     {
-                                        completion.items = completion_candidates(&doc.content, range.primary.index, doc_lang, force_complete);
+                                        completion.items = completion_candidates(&doc.content, usize::from(range.primary.index), doc_lang, force_complete);
                                         completion.selected = 0;
-                                        completion.at = range.primary.index;
-                                    } else if range.primary.index != completion.at || !response.has_focus() {
+                                        completion.at = usize::from(range.primary.index);
+                                    } else if usize::from(range.primary.index) != completion.at || !response.has_focus() {
                                         completion.items.clear();
                                     }
                                     if !completion.items.is_empty() {
                                         let r = output.galley.pos_from_cursor(range.primary).translate(output.galley_pos.to_vec2());
                                         let mut clicked = None;
-                                        egui::Area::new(egui::Id::new("completion_popup"))
+                                        egui::Area::new(egui::Id::unique("completion_popup"))
                                             .order(egui::Order::Foreground)
                                             .fixed_pos(r.left_bottom() + egui::vec2(0.0, 2.0))
                                             .show(ui.ctx(), |ui| {
@@ -415,7 +418,7 @@ impl RustNoteApp {
                                             line_no += 1;
                                             new_line = false;
                                         }
-                                        if placed.row.ends_with_newline {
+                                        if placed.ends_with_newline {
                                             new_line = true;
                                         }
                                     }

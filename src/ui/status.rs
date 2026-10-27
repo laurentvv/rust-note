@@ -3,12 +3,12 @@
 use crate::app::RustNoteApp;
 use crate::i18n::tr;
 use crate::ui::{language_icon, tc};
-use eframe::egui::{self, Context, Layout, RichText};
+use eframe::egui::{self, Layout, RichText, Ui};
 
 impl RustNoteApp {
-    pub(crate) fn render_status_bar(&mut self, _ctx: &Context) {
+    pub(crate) fn render_status_bar(&mut self, ui: &mut Ui) {
         let light = !self.theme.is_dark();
-        egui::TopBottomPanel::bottom("status_bar").show(_ctx, |ui| {
+        egui::Panel::bottom("status_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if let Some(doc) = self.active_doc() {
                     let (lines, chars, bytes) = (doc.line_count(), doc.char_count(), doc.byte_len());

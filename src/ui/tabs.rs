@@ -3,12 +3,13 @@
 use crate::app::RustNoteApp;
 use crate::i18n::tr;
 use crate::ui::{language_icon, tc};
-use eframe::egui::{self, Context, RichText, ScrollArea};
+use eframe::egui::{self, Context, RichText, ScrollArea, Ui};
 
 impl RustNoteApp {
-    pub(crate) fn render_tab_bar(&mut self, ctx: &Context) {
+    pub(crate) fn render_tab_bar(&mut self, ui: &mut Ui) {
+        let ctx: Context = ui.ctx().clone();
         let light = !self.theme.is_dark();
-        egui::TopBottomPanel::top("tab_bar").show(ctx, |ui| {
+        egui::Panel::top("tab_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ScrollArea::horizontal().show(ui, |ui| {
                     ui.horizontal(|ui| {

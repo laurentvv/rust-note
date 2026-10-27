@@ -8,11 +8,12 @@ use crate::plugins;
 use crate::syntax::Language;
 use crate::ui::dialogs::FindTab;
 use crate::ui::themes::EditorTheme;
-use eframe::egui::{self, Context, ScrollArea};
+use eframe::egui::{self, Context, ScrollArea, Ui};
 
 impl RustNoteApp {
-    pub(crate) fn render_menu_bar(&mut self, ctx: &Context) {
-        egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
+    pub(crate) fn render_menu_bar(&mut self, ui: &mut Ui) {
+        let ctx: Context = ui.ctx().clone();
+        egui::Panel::top("top_menu_bar").show(ui, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 // --- FILE ---
                 ui.menu_button(tr("File"), |ui| {
@@ -82,15 +83,15 @@ impl RustNoteApp {
                     });
                     ui.menu_button(tr("Copy to Clipboard"), |ui| {
                         if ui.button(tr("Copy Full File Path")).clicked() {
-                            self.copy_full_path(ctx);
+                            self.copy_full_path(&ctx);
                             ui.close();
                         }
                         if ui.button(tr("Copy Filename")).clicked() {
-                            self.copy_filename(ctx);
+                            self.copy_filename(&ctx);
                             ui.close();
                         }
                         if ui.button(tr("Copy Directory Path")).clicked() {
-                            self.copy_directory_path(ctx);
+                            self.copy_directory_path(&ctx);
                             ui.close();
                         }
                     });
@@ -372,7 +373,7 @@ impl RustNoteApp {
                         for t in EditorTheme::ALL {
                             if ui.selectable_label(self.theme == t, t.name()).clicked() {
                                 self.theme = t;
-                                self.apply_theme(ctx);
+                                self.apply_theme(&ctx);
                                 self.set_notification(format!("Theme: {}", t.name()));
                                 ui.close();
                             }
@@ -563,15 +564,15 @@ impl RustNoteApp {
 
                     ui.menu_button(tr("NppShell"), |ui| {
                         if ui.button(tr("Copy Full File Path")).clicked() {
-                            self.copy_full_path(ctx);
+                            self.copy_full_path(&ctx);
                             ui.close();
                         }
                         if ui.button(tr("Copy Filename")).clicked() {
-                            self.copy_filename(ctx);
+                            self.copy_filename(&ctx);
                             ui.close();
                         }
                         if ui.button(tr("Copy Directory Path")).clicked() {
-                            self.copy_directory_path(ctx);
+                            self.copy_directory_path(&ctx);
                             ui.close();
                         }
                     });
@@ -594,15 +595,15 @@ impl RustNoteApp {
                     }
                     ui.menu_button(tr("Help on Internet"), |ui| {
                         if ui.button(tr("Get PHP help\tAlt+F1")).clicked() {
-                            self.web_lookup(ctx, "https://www.php.net/");
+                            self.web_lookup(&ctx, "https://www.php.net/");
                             ui.close();
                         }
                         if ui.button(tr("Wikipedia Search\tAlt+F3")).clicked() {
-                            self.web_lookup(ctx, "https://en.wikipedia.org/wiki/Special:Search?search=");
+                            self.web_lookup(&ctx, "https://en.wikipedia.org/wiki/Special:Search?search=");
                             ui.close();
                         }
                         if ui.button(tr("Search the web")).clicked() {
-                            self.web_lookup(ctx, "https://duckduckgo.com/?q=");
+                            self.web_lookup(&ctx, "https://duckduckgo.com/?q=");
                             ui.close();
                         }
                     });
