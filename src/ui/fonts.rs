@@ -27,7 +27,11 @@ fn load_first(
                 .font_data
                 .insert(name.to_string(), FontData::from_owned(bytes).into());
             // Create the family if egui has no entry for it yet (named families start empty)
-            fonts.families.entry(family).or_default().insert(0, name.to_string());
+            fonts
+                .families
+                .entry(family)
+                .or_default()
+                .insert(0, name.to_string());
             return true;
         }
     }
