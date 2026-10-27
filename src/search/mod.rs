@@ -57,7 +57,11 @@ pub fn build_regex(query: &str, options: &SearchOptions) -> Result<Regex, String
 }
 
 /// Finds all occurrences of the query in text.
-pub fn find_all(text: &str, query: &str, options: &SearchOptions) -> Result<Vec<SearchMatch>, String> {
+pub fn find_all(
+    text: &str,
+    query: &str,
+    options: &SearchOptions,
+) -> Result<Vec<SearchMatch>, String> {
     let re = build_regex(query, options)?;
     let mut matches = Vec::new();
 
@@ -104,7 +108,9 @@ pub fn find_from(
     let re = build_regex(query, options)?;
     let from = from.min(text.len());
     if forward {
-        let from = (from..=text.len()).find(|i| text.is_char_boundary(*i)).unwrap_or(text.len());
+        let from = (from..=text.len())
+            .find(|i| text.is_char_boundary(*i))
+            .unwrap_or(text.len());
         if let Some(m) = re.find_at(text, from) {
             return Ok(Some((m.start(), m.end(), false)));
         }
@@ -131,7 +137,12 @@ pub fn find_from(
 }
 
 /// Expands a replacement for a single match (supports `$1` groups in regex mode).
-pub fn replacement_for(matched: &str, query: &str, replacement: &str, options: &SearchOptions) -> String {
+pub fn replacement_for(
+    matched: &str,
+    query: &str,
+    replacement: &str,
+    options: &SearchOptions,
+) -> String {
     if options.use_regex {
         if let Ok(re) = build_regex(query, options) {
             return re.replace(matched, replacement).to_string();

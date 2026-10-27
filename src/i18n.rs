@@ -31,7 +31,11 @@ pub fn set_lang(lang: UiLang) {
 
 #[must_use]
 pub fn lang() -> UiLang {
-    if CURRENT.load(Ordering::Relaxed) == 1 { UiLang::French } else { UiLang::English }
+    if CURRENT.load(Ordering::Relaxed) == 1 {
+        UiLang::French
+    } else {
+        UiLang::English
+    }
 }
 
 /// Translates a UI string. Handles a leading icon, a trailing `...`, a `\tShortcut` suffix
@@ -59,7 +63,9 @@ pub fn tr(s: &str) -> String {
         Some(i) if head.ends_with(')') => (&head[..i], Some(&head[i..])),
         _ => (head, None),
     };
-    let start = head.find(|c: char| c.is_alphanumeric()).unwrap_or(head.len());
+    let start = head
+        .find(|c: char| c.is_alphanumeric())
+        .unwrap_or(head.len());
     let (icon, rest) = head.split_at(start);
     let (core, dots) = match rest.strip_suffix("...") {
         Some(c) => (c, "..."),
@@ -90,7 +96,10 @@ fn message(s: &str) -> String {
         ("Save error: ", "Erreur d'enregistrement : "),
         ("Saved as ", "Enregistré sous "),
         ("Theme: ", "Thème : "),
-        ("Cannot start a new instance: ", "Impossible de lancer une nouvelle instance : "),
+        (
+            "Cannot start a new instance: ",
+            "Impossible de lancer une nouvelle instance : ",
+        ),
     ];
     for (en, fr) in PREFIXES {
         if let Some(rest) = s.strip_prefix(en) {
@@ -107,31 +116,45 @@ fn message(s: &str) -> String {
     if let Some(r) = s.strip_prefix("Can't find the text ") {
         return format!("Texte introuvable : {r}");
     }
-    if let Some(n) = s.strip_prefix("Count: ").and_then(|r| r.strip_suffix(" match(es) in the current document")) {
+    if let Some(n) = s
+        .strip_prefix("Count: ")
+        .and_then(|r| r.strip_suffix(" match(es) in the current document"))
+    {
         return format!("Total : {n} occurrence(s) dans le document actuel");
     }
-    if let Some(n) = s.strip_prefix("Replace All: ").and_then(|r| r.strip_suffix(" occurrence(s) were replaced.")) {
+    if let Some(n) = s
+        .strip_prefix("Replace All: ")
+        .and_then(|r| r.strip_suffix(" occurrence(s) were replaced."))
+    {
         return format!("Remplacer tout : {n} occurrence(s) remplacée(s).");
     }
     if let Some(r) = s.strip_prefix("Find All: ") {
         if let Some((hits, docs)) = r.split_once(" hit(s) in ") {
-            return format!("Tout rechercher : {hits} résultat(s) dans {}", docs.replace(" document(s)", " document(s)"));
+            return format!("Tout rechercher : {hits} résultat(s) dans {docs}");
         }
     }
     if let Some(r) = s.strip_prefix("Invalid regular expression: ") {
         return format!("Expression régulière invalide : {r}");
     }
-    if let Some(n) = s.strip_prefix("Replaced ").and_then(|r| r.strip_suffix(" occurrences")) {
+    if let Some(n) = s
+        .strip_prefix("Replaced ")
+        .and_then(|r| r.strip_suffix(" occurrences"))
+    {
         return format!("{n} occurrences remplacées");
     }
-    if let Some(n) = s.strip_prefix("Saved ").and_then(|r| r.strip_suffix(" documents")) {
+    if let Some(n) = s
+        .strip_prefix("Saved ")
+        .and_then(|r| r.strip_suffix(" documents"))
+    {
         return format!("{n} documents enregistrés");
     }
     if let Some(name) = s.strip_prefix("Saved ") {
         return format!("Enregistré : {name}");
     }
     if s.starts_with("Jumped to '") {
-        return s.replacen("Jumped to '", "Saut à '", 1).replace(" (line ", " (ligne ");
+        return s
+            .replacen("Jumped to '", "Saut à '", 1)
+            .replace(" (line ", " (ligne ");
     }
     s.to_string()
 }
@@ -270,9 +293,13 @@ fn fr(s: &str) -> Option<&'static str> {
         "Replace with:" => "Remplacer par :",
         "Find / Replace" => "Rechercher / Remplacer",
         "Line number" => "Numéro de ligne",
-        "A modern, elegant, and high-performance code editor built with Rust and egui." => "Un éditeur de code moderne, élégant et performant, écrit en Rust avec egui.",
+        "A modern, elegant, and high-performance code editor built with Rust and egui." => {
+            "Un éditeur de code moderne, élégant et performant, écrit en Rust avec egui."
+        }
         "Author:" => "Auteur :",
-        "Engine Architecture: High-performance multi-tab text buffer" => "Architecture : tampon de texte multi-onglets haute performance",
+        "Engine Architecture: High-performance multi-tab text buffer" => {
+            "Architecture : tampon de texte multi-onglets haute performance"
+        }
         "Source & Docs" => "Sources et documentation",
         "Current Document Properties" => "Propriétés du document actuel",
         "File Path:" => "Chemin :",
@@ -313,8 +340,12 @@ fn fr(s: &str) -> Option<&'static str> {
         "No recently closed tabs to restore" => "Aucun onglet récemment fermé à restaurer",
         "Enter text to search for" => "Saisissez le texte à rechercher",
         "Document is read-only" => "Le document est en lecture seule",
-        "Replaced 1 occurrence; next match selected" => "1 occurrence remplacée ; suivante sélectionnée",
-        "Replaced 1 occurrence; no more matches" => "1 occurrence remplacée ; plus aucune correspondance",
+        "Replaced 1 occurrence; next match selected" => {
+            "1 occurrence remplacée ; suivante sélectionnée"
+        }
+        "Replaced 1 occurrence; no more matches" => {
+            "1 occurrence remplacée ; plus aucune correspondance"
+        }
         "line" => "ligne",
         "New / Open / Save" => "Nouveau / Ouvrir / Enregistrer",
         "Save All / Save As" => "Tout enregistrer / Enregistrer sous",
@@ -338,11 +369,27 @@ fn fr(s: &str) -> Option<&'static str> {
         "Function list" => "Liste des fonctions",
         "Go to line" => "Aller à la ligne",
         "0x Quick Converter" => "Convertisseur rapide 0x",
-        "Bidirectional Real-Time Multi-Base Converter" => "Convertisseur multi-bases bidirectionnel en temps réel",
+        "Bidirectional Real-Time Multi-Base Converter" => {
+            "Convertisseur multi-bases bidirectionnel en temps réel"
+        }
         "rust-note Context Menu" => "Menu contextuel rust-note",
         "INS" => "INS",
-        "Word wrap turned off for column selection" => "Retour à la ligne désactivé pour la sélection en colonne",
+        "Word wrap turned off for column selection" => {
+            "Retour à la ligne désactivé pour la sélection en colonne"
+        }
         "OK" => "OK",
+        // Tabs / palette / themes
+        "Pin Tab" => "Épingler l'onglet",
+        "Unpin Tab" => "Détacher l'onglet",
+        "Tab pinned" => "Onglet épinglé",
+        "Tab unpinned" => "Onglet détaché",
+        "Command Palette" => "Palette de commandes",
+        "Command palette" => "Palette de commandes",
+        "Command Palette (Ctrl+Shift+P)" => "Palette de commandes (Ctrl+Shift+P)",
+        "Type a command..." => "Saisir une commande...",
+        "No matching command" => "Aucune commande correspondante",
+        "Navigate" => "Naviguer",
+        "Follow Windows Theme" => "Suivre le thème Windows",
         _ => return None,
     })
 }
@@ -357,7 +404,9 @@ mod tests {
 
     #[test]
     fn french_translation_keeps_icons_shortcuts_and_dots() {
-        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _guard = LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         set_lang(UiLang::French);
         assert_eq!(tr("Open...\tCtrl+O"), "Ouvrir...\tCtrl+O");
         assert_eq!(tr("📂 Open"), "📂 Ouvrir");
@@ -366,10 +415,19 @@ mod tests {
         assert_eq!(tr("Replaced 3 occurrences"), "3 occurrences remplacées");
         assert_eq!(tr("Saved as C:/x.txt"), "Enregistré sous C:/x.txt");
         assert_eq!(tr("Saved main.rs"), "Enregistré : main.rs");
-        assert_eq!(tr("Replace All: 3 occurrence(s) were replaced."), "Remplacer tout : 3 occurrence(s) remplacée(s).");
+        assert_eq!(
+            tr("Replace All: 3 occurrence(s) were replaced."),
+            "Remplacer tout : 3 occurrence(s) remplacée(s)."
+        );
         assert_eq!(tr("Found at line 7"), "Trouvé à la ligne 7");
-        assert_eq!(tr("Found at line 2 (wrapped around the document)"), "Trouvé à la ligne 2 (retour au début du document)");
-        assert_eq!(tr("Count: 2 match(es) in the current document"), "Total : 2 occurrence(s) dans le document actuel");
+        assert_eq!(
+            tr("Found at line 2 (wrapped around the document)"),
+            "Trouvé à la ligne 2 (retour au début du document)"
+        );
+        assert_eq!(
+            tr("Count: 2 match(es) in the current document"),
+            "Total : 2 occurrence(s) dans le document actuel"
+        );
         assert_eq!(tr("Jumped to 'run' (line 4)"), "Saut à 'run' (ligne 4)");
         set_lang(UiLang::English);
         assert_eq!(tr("File"), "File");
@@ -379,13 +437,46 @@ mod tests {
     /// (or be language-neutral), so no static label is silently left in English.
     #[test]
     fn all_ui_literals_are_translated() {
-        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let sources = [include_str!("app.rs"), include_str!("ui/dialogs.rs")];
+        let _guard = LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let sources = [
+            include_str!("app.rs"),
+            include_str!("ui/dialogs.rs"),
+            include_str!("ui/editor.rs"),
+            include_str!("ui/menu.rs"),
+            include_str!("ui/palette.rs"),
+            include_str!("ui/sidebar.rs"),
+            include_str!("ui/status.rs"),
+            include_str!("ui/tabs.rs"),
+            include_str!("ui/toolbar.rs"),
+            include_str!("ui/windows.rs"),
+        ];
         // Names, formats and symbols that are identical in French
         let neutral = [
-            "?", "+", "×", "➕", "➖", "OK", "UTF-8", "UTF-8-BOM", "UTF-16 LE", "UTF-16 BE", "ANSI (Windows-1252)",
-            "Windows (CR LF)", "Unix (LF)", "Macintosh (CR)", "NppExport", "NppShell", "Col", "Sel", "    ",
-            "↩ Wrap", "PowerShell", "MD5", "✏ INS",
+            "?",
+            "+",
+            "×",
+            "➕",
+            "➖",
+            "OK",
+            "UTF-8",
+            "UTF-8-BOM",
+            "UTF-16 LE",
+            "UTF-16 BE",
+            "ANSI (Windows-1252)",
+            "Windows (CR LF)",
+            "Unix (LF)",
+            "Macintosh (CR)",
+            "NppExport",
+            "NppShell",
+            "Col",
+            "Sel",
+            "    ",
+            "↩ Wrap",
+            "PowerShell",
+            "MD5",
+            "✏ INS",
         ];
         set_lang(UiLang::French);
         let mut missing = Vec::new();
@@ -413,25 +504,56 @@ mod tests {
     /// Every status message the application can show must have a French form.
     #[test]
     fn all_status_messages_are_translated() {
-        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _guard = LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let messages = [
-            "All documents closed", "Closed other documents", "Copied DEC to clipboard",
-            "Copied HEX to clipboard", "Copied directory path to clipboard", "Copied filename to clipboard",
-            "Copied full path to clipboard", "Document closed", "Document has not been saved to disk yet",
-            "New document created", "No recently closed tabs to restore", "Place the caret on a word first",
-            "Error opening x.txt: denied", "Export error: denied", "Exported HTML to a.html", "Exported RTF to a.rtf",
-            "Jumped to 'run' (line 3)", "Jumped to line 3", "Opened a.txt", "Replaced 4 occurrences",
-            "Restored tab 'a.txt'", "Save error: denied", "Saved as a.txt", "Saved 2 documents", "Saved a.txt",
-            "Theme: Monokai", "Document is read-only", "Enter text to search for", "Can't find the text \"x\"",
-            "Found at line 2", "Found at line 2 (wrapped around the document)",
-            "Count: 3 match(es) in the current document", "Replace All: 3 occurrence(s) were replaced.",
-            "Find All: 4 hit(s) in 2 document(s)", "Replaced 1 occurrence; next match selected",
-            "Replaced 1 occurrence; no more matches", "Opened in a new instance", "Word wrap turned off for column selection",
+            "All documents closed",
+            "Closed other documents",
+            "Copied DEC to clipboard",
+            "Copied HEX to clipboard",
+            "Copied directory path to clipboard",
+            "Copied filename to clipboard",
+            "Copied full path to clipboard",
+            "Document closed",
+            "Document has not been saved to disk yet",
+            "New document created",
+            "No recently closed tabs to restore",
+            "Place the caret on a word first",
+            "Error opening x.txt: denied",
+            "Export error: denied",
+            "Exported HTML to a.html",
+            "Exported RTF to a.rtf",
+            "Jumped to 'run' (line 3)",
+            "Jumped to line 3",
+            "Opened a.txt",
+            "Replaced 4 occurrences",
+            "Restored tab 'a.txt'",
+            "Save error: denied",
+            "Saved as a.txt",
+            "Saved 2 documents",
+            "Saved a.txt",
+            "Theme: Monokai",
+            "Document is read-only",
+            "Enter text to search for",
+            "Can't find the text \"x\"",
+            "Found at line 2",
+            "Found at line 2 (wrapped around the document)",
+            "Count: 3 match(es) in the current document",
+            "Replace All: 3 occurrence(s) were replaced.",
+            "Find All: 4 hit(s) in 2 document(s)",
+            "Replaced 1 occurrence; next match selected",
+            "Replaced 1 occurrence; no more matches",
+            "Opened in a new instance",
+            "Word wrap turned off for column selection",
         ];
         set_lang(UiLang::French);
         let untranslated: Vec<&str> = messages.iter().copied().filter(|m| tr(m) == *m).collect();
         set_lang(UiLang::English);
-        assert!(untranslated.is_empty(), "untranslated messages: {untranslated:#?}");
+        assert!(
+            untranslated.is_empty(),
+            "untranslated messages: {untranslated:#?}"
+        );
     }
 
     /// Exhaustive guard: every tooltip created in the UI code goes through `tr(...)`
@@ -439,13 +561,31 @@ mod tests {
     #[test]
     fn every_tooltip_is_routed_through_tr() {
         let mut offenders = Vec::new();
-        for (name, src) in [("app.rs", include_str!("app.rs")), ("dialogs.rs", include_str!("ui/dialogs.rs"))] {
+        let files = [
+            ("app.rs", include_str!("app.rs")),
+            ("dialogs.rs", include_str!("ui/dialogs.rs")),
+            ("editor.rs", include_str!("ui/editor.rs")),
+            ("menu.rs", include_str!("ui/menu.rs")),
+            ("palette.rs", include_str!("ui/palette.rs")),
+            ("sidebar.rs", include_str!("ui/sidebar.rs")),
+            ("status.rs", include_str!("ui/status.rs")),
+            ("tabs.rs", include_str!("ui/tabs.rs")),
+            ("toolbar.rs", include_str!("ui/toolbar.rs")),
+            ("windows.rs", include_str!("ui/windows.rs")),
+        ];
+        for (name, src) in files {
             for (n, line) in src.lines().enumerate() {
-                if line.contains(".on_hover_text(") && !line.contains("tr(") && !line.contains("path.display()") {
+                if line.contains(".on_hover_text(")
+                    && !line.contains("tr(")
+                    && !line.contains("path.display()")
+                {
                     offenders.push(format!("{name}:{}: {}", n + 1, line.trim()));
                 }
             }
         }
-        assert!(offenders.is_empty(), "tooltips not translated: {offenders:#?}");
+        assert!(
+            offenders.is_empty(),
+            "tooltips not translated: {offenders:#?}"
+        );
     }
 }

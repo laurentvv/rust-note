@@ -13,6 +13,8 @@ pub enum EditorTheme {
     SolarizedDark,
     SolarizedLight,
     Zenburn,
+    FluentDark,
+    FluentLight,
 }
 
 pub struct ThemeColors {
@@ -30,13 +32,15 @@ const fn rgb(r: u8, g: u8, b: u8) -> Color32 {
 }
 
 impl EditorTheme {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 8] = [
         Self::DarkMode,
         Self::ClassicLight,
         Self::Monokai,
         Self::SolarizedDark,
         Self::SolarizedLight,
         Self::Zenburn,
+        Self::FluentDark,
+        Self::FluentLight,
     ];
 
     #[must_use]
@@ -48,6 +52,8 @@ impl EditorTheme {
             Self::SolarizedDark => "Solarized Dark",
             Self::SolarizedLight => "Solarized Light",
             Self::Zenburn => "Zenburn",
+            Self::FluentDark => "Fluent Dark (Windows 11)",
+            Self::FluentLight => "Fluent Light (Windows 11)",
         }
     }
 
@@ -141,6 +147,39 @@ impl EditorTheme {
                     type_name: rgb(223, 175, 143),
                 },
             },
+            // Windows 11 Fluent palette: soft neutrals with the system accent blue
+            Self::FluentDark => ThemeColors {
+                dark: true,
+                panel: rgb(32, 32, 32),
+                window: rgb(43, 43, 43),
+                editor: rgb(27, 27, 27),
+                selection: rgb(58, 58, 72),
+                accent: rgb(96, 205, 255),
+                palette: Palette {
+                    text: rgb(228, 228, 232),
+                    keyword: rgb(86, 202, 255),
+                    string: rgb(209, 185, 115),
+                    comment: rgb(126, 138, 148),
+                    number: rgb(181, 155, 255),
+                    type_name: rgb(96, 205, 255),
+                },
+            },
+            Self::FluentLight => ThemeColors {
+                dark: false,
+                panel: rgb(243, 243, 243),
+                window: rgb(255, 255, 255),
+                editor: rgb(255, 255, 255),
+                selection: rgb(204, 228, 247),
+                accent: rgb(0, 95, 184),
+                palette: Palette {
+                    text: rgb(28, 32, 36),
+                    keyword: rgb(0, 95, 184),
+                    string: rgb(140, 110, 10),
+                    comment: rgb(110, 120, 130),
+                    number: rgb(140, 60, 160),
+                    type_name: rgb(0, 120, 120),
+                },
+            },
         }
     }
 
@@ -148,7 +187,11 @@ impl EditorTheme {
     #[must_use]
     pub fn visuals(self) -> egui::Visuals {
         let c = self.colors();
-        let mut v = if c.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+        let mut v = if c.dark {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
         v.panel_fill = c.panel;
         v.window_fill = c.window;
         v.extreme_bg_color = c.editor;
@@ -157,7 +200,12 @@ impl EditorTheme {
         v.hyperlink_color = c.accent;
         v.override_text_color = Some(c.palette.text);
         // Menus and buttons use the widget strokes: keep them at full text contrast too
-        for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
+        for w in [
+            &mut v.widgets.noninteractive,
+            &mut v.widgets.inactive,
+            &mut v.widgets.hovered,
+            &mut v.widgets.active,
+        ] {
             w.fg_stroke.color = c.palette.text;
         }
         v

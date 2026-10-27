@@ -136,8 +136,18 @@ pub fn insert_each(content: &str, sel: &ColumnSel, texts: &[&str]) -> (String, C
         chars.splice(start..end, ins.iter().copied());
         line_no += 1;
     });
-    let width: usize = pieces.iter().map(|p| p.iter().map(|c| char_width(*c)).sum()).max().unwrap_or(0);
-    (out, ColumnSel { anchor: (l1, c1 + width), head: (l2, c1 + width) })
+    let width: usize = pieces
+        .iter()
+        .map(|p| p.iter().map(|c| char_width(*c)).sum())
+        .max()
+        .unwrap_or(0);
+    (
+        out,
+        ColumnSel {
+            anchor: (l1, c1 + width),
+            head: (l2, c1 + width),
+        },
+    )
 }
 
 /// Char index of the selection head (last dragged position), clamped to its line.
@@ -165,7 +175,13 @@ pub fn delete(content: &str, sel: &ColumnSel, forward: bool) -> (String, ColumnS
             let start = vis_to_idx(chars, c1).0.min(end);
             chars.drain(start..end);
         });
-        return (out, ColumnSel { anchor: (l1, c1), head: (l2, c1) });
+        return (
+            out,
+            ColumnSel {
+                anchor: (l1, c1),
+                head: (l2, c1),
+            },
+        );
     }
     if !forward && c1 == 0 {
         return (content.to_string(), *sel);
@@ -176,14 +192,28 @@ pub fn delete(content: &str, sel: &ColumnSel, forward: bool) -> (String, ColumnS
         if pad > 0 {
             return;
         }
-        let target = if forward { Some(idx) } else { idx.checked_sub(1) };
+        let target = if forward {
+            Some(idx)
+        } else {
+            idx.checked_sub(1)
+        };
         if let Some(t) = target.filter(|t| *t < chars.len()) {
             removed_width = char_width(chars[t]);
             chars.remove(t);
         }
     });
-    let col = if forward { c1 } else { c1.saturating_sub(removed_width) };
-    (out, ColumnSel { anchor: (l1, col), head: (l2, col) })
+    let col = if forward {
+        c1
+    } else {
+        c1.saturating_sub(removed_width)
+    };
+    (
+        out,
+        ColumnSel {
+            anchor: (l1, col),
+            head: (l2, col),
+        },
+    )
 }
 
 #[cfg(test)]
@@ -191,12 +221,18 @@ mod tests {
     use super::*;
 
     fn sel(l1: usize, c1: usize, l2: usize, c2: usize) -> ColumnSel {
-        ColumnSel { anchor: (l1, c1), head: (l2, c2) }
+        ColumnSel {
+            anchor: (l1, c1),
+            head: (l2, c2),
+        }
     }
 
     #[test]
     fn extract_block() {
-        assert_eq!(extract("abcdef\nghijkl\nmn", &sel(0, 1, 2, 4)), "bcd\nhij\nn");
+        assert_eq!(
+            extract("abcdef\nghijkl\nmn", &sel(0, 1, 2, 4)),
+            "bcd\nhij\nn"
+        );
     }
 
     #[test]

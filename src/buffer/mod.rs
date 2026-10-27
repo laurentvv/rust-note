@@ -26,7 +26,6 @@ pub struct Document {
     pub is_pinned: bool,
     pub cursor_line: usize,
     pub cursor_col: usize,
-    pub scroll_offset: f32,
     pub language: Option<crate::syntax::Language>,
     pub history: History,
     /// Cursor position as a char index (kept in sync with the editor widget).
@@ -44,13 +43,8 @@ pub struct Document {
 }
 
 impl Document {
-    #[must_use]
-    pub fn new_empty(title: Option<&str>) -> Self {
-        let id = NEXT_DOC_ID.fetch_add(1, Ordering::Relaxed);
-        let title = title
-            .map(str::to_owned)
-            .unwrap_or_else(|| format!("new {id}"));
-
+    /// Fresh document skeleton with neutral defaults (single source of truth for the fields).
+    fn base(id: usize, title: String) -> Self {
         Self {
             id,
             title,
@@ -63,7 +57,6 @@ impl Document {
             is_pinned: false,
             cursor_line: 1,
             cursor_col: 1,
-            scroll_offset: 0.0,
             language: None,
             history: History::default(),
             cursor_char: 0,
@@ -74,6 +67,15 @@ impl Document {
             column_sel: None,
             column_dragging: false,
         }
+    }
+
+    #[must_use]
+    pub fn new_empty(title: Option<&str>) -> Self {
+        let id = NEXT_DOC_ID.fetch_add(1, Ordering::Relaxed);
+        let title = title
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("new {id}"));
+        Self::base(id, title)
     }
 
     /// Loads a document from disk, decoding encoding and EOL.
@@ -92,29 +94,14 @@ impl Document {
 
         let id = NEXT_DOC_ID.fetch_add(1, Ordering::Relaxed);
 
-        Ok(Self {
-            id,
-            title,
-            path: Some(path_ref.to_path_buf()),
-            snapshot: content.clone(),
-            content,
-            encoding: enc,
-            eol,
-            is_dirty: false,
-            is_readonly: false,
-            is_pinned: false,
-            cursor_line: 1,
-            cursor_col: 1,
-            scroll_offset: 0.0,
-            language,
-            history: History::default(),
-            cursor_char: 0,
-            selection_len: 0,
-            pending_selection: None,
-            last_edit: None,
-            column_sel: None,
-            column_dragging: false,
-        })
+        let mut doc = Self::base(id, title);
+        doc.path = Some(path_ref.to_path_buf());
+        doc.content = content;
+        doc.snapshot = doc.content.clone();
+        doc.encoding = enc;
+        doc.eol = eol;
+        doc.language = language;
+        Ok(doc)
     }
 
     /// Saves the document to its path or a designated target.

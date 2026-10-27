@@ -4,8 +4,8 @@
 //! Their PCRE patterns are run with `fancy-regex`; a parser that cannot be compiled is ignored and
 //! the built-in symbol extractor is used instead.
 
-use super::symbols::{extract_symbols, DocumentSymbol, SymbolKind};
 use super::Language;
+use super::symbols::{DocumentSymbol, SymbolKind, extract_symbols};
 use fancy_regex::Regex;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -158,7 +158,10 @@ fn tokenize(xml: &str) -> Vec<Tok> {
                 if j < b.len() && (b[j] == b'"' || b[j] == b'\'') {
                     let q = b[j];
                     let vs = j + 1;
-                    let ve = b[vs..].iter().position(|c| *c == q).map_or(b.len(), |p| vs + p);
+                    let ve = b[vs..]
+                        .iter()
+                        .position(|c| *c == q)
+                        .map_or(b.len(), |p| vs + p);
                     attrs.push((key, decode(&xml[vs..ve])));
                     j = (ve + 1).min(b.len());
                 }
@@ -234,7 +237,6 @@ fn pcre(pattern: &str) -> String {
     }
     out
 }
-
 
 /// Index of the `)` matching the `(` at `open`, skipping escapes, character classes and
 /// (in free-spacing mode) `#` comments.
@@ -315,8 +317,13 @@ fn expand_subroutines(pattern: &str) -> String {
     // 2. Drop (?(DEFINE)...) blocks
     let marker: Vec<char> = "(?(DEFINE)".chars().collect();
     let mut text: Vec<char> = chars;
-    while let Some(start) = text.windows(marker.len()).position(|w| w == marker.as_slice()) {
-        let Some(end) = matching_paren(&text, start, free) else { break };
+    while let Some(start) = text
+        .windows(marker.len())
+        .position(|w| w == marker.as_slice())
+    {
+        let Some(end) = matching_paren(&text, start, free) else {
+            break;
+        };
         text.drain(start..=end);
     }
     let mut out: String = text.into_iter().collect();
@@ -335,10 +342,17 @@ fn expand_subroutines(pattern: &str) -> String {
     let mut cache: HashMap<String, String> = HashMap::new();
     let mut stack: Vec<String> = Vec::new();
     let mut cut = false;
-    out = inline_calls(&out, &defs, &strip_names, &mut cache, &mut stack, &mut cut, if free { "\n" } else { "" });
+    out = inline_calls(
+        &out,
+        &defs,
+        &strip_names,
+        &mut cache,
+        &mut stack,
+        &mut cut,
+        if free { "\n" } else { "" },
+    );
     out
 }
-
 
 /// Replaces every `(?&NAME)` of `text` by the expanded definition of NAME (memoized). Truly
 /// recursive definitions are unrolled to `MAX_UNROLL` levels; deeper calls become a never-matching class, which
@@ -372,7 +386,15 @@ fn inline_calls(
         } else if let Some((_, body)) = defs.iter().find(|(n, _)| n == name) {
             stack.push(name.to_string());
             let mut inner_cut = false;
-            let e = inline_calls(&strip_names(body), defs, strip_names, cache, stack, &mut inner_cut, nl);
+            let e = inline_calls(
+                &strip_names(body),
+                defs,
+                strip_names,
+                cache,
+                stack,
+                &mut inner_cut,
+                nl,
+            );
             stack.pop();
             if inner_cut {
                 *cut = true;
@@ -451,11 +473,17 @@ fn expand_conditionals(pattern: &str) -> String {
     let mut chars: Vec<char> = pattern.chars().collect();
     for _ in 0..64 {
         let found = (0..chars.len().saturating_sub(4)).find(|&i| {
-            chars[i] == '(' && chars[i + 1] == '?' && chars[i + 2] == '(' && chars[i + 3] == '?'
+            chars[i] == '('
+                && chars[i + 1] == '?'
+                && chars[i + 2] == '('
+                && chars[i + 3] == '?'
                 && matches!(chars[i + 4], '=' | '!')
         });
         let Some(i) = found else { break };
-        let (Some(look_end), Some(cond_end)) = (matching_paren(&chars, i + 2, free), matching_paren(&chars, i, free)) else {
+        let (Some(look_end), Some(cond_end)) = (
+            matching_paren(&chars, i + 2, free),
+            matching_paren(&chars, i, free),
+        ) else {
             break;
         };
         let positive = chars[i + 4] == '=';
@@ -463,7 +491,11 @@ fn expand_conditionals(pattern: &str) -> String {
         let parts = split_alternatives(&chars[look_end + 1..cond_end], free);
         let yes = parts.first().cloned().unwrap_or_default();
         let no = parts.get(1).cloned().unwrap_or_default();
-        let (pos, neg) = if positive { ("(?=", "(?!") } else { ("(?!", "(?=") };
+        let (pos, neg) = if positive {
+            ("(?=", "(?!")
+        } else {
+            ("(?!", "(?=")
+        };
         let replacement = format!("(?:{pos}{content}){yes}|{neg}{content}){no})");
         chars.splice(i..=cond_end, replacement.chars());
     }
@@ -530,12 +562,25 @@ fn expand_numbered(pattern: &str) -> String {
 }
 
 fn compile(p: &str) -> Option<Regex> {
-    match Regex::new(&format!("(?m){}", pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(p)))))) {
+    match Regex::new(&format!(
+        "(?m){}",
+        pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(
+            p
+        ))))
+    )) {
         Ok(r) => Some(r),
         Err(e) => {
             if std::env::var_os("RUST_NOTE_DEBUG_FNLIST").is_some() {
-                let full = pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(p))));
-                let pos: usize = e.to_string().split("position ").nth(1).and_then(|r| r.split(':').next()).and_then(|n| n.trim().parse().ok()).unwrap_or(0);
+                let full = pcre(&expand_numbered(&expand_conditionals(&expand_subroutines(
+                    p,
+                ))));
+                let pos: usize = e
+                    .to_string()
+                    .split("position ")
+                    .nth(1)
+                    .and_then(|r| r.split(':').next())
+                    .and_then(|n| n.trim().parse().ok())
+                    .unwrap_or(0);
                 let from = pos.saturating_sub(40).min(full.len());
                 let ctx: String = full.chars().skip(from).take(80).collect();
                 eprintln!("fnlist: {e} near [{}]", ctx.replace('\n', " "));
@@ -549,7 +594,11 @@ fn parse_parser(xml: &str) -> Option<Parser> {
     let toks = tokenize(xml);
     let mut stack: Vec<String> = Vec::new();
     let mut started = false;
-    let mut parser = Parser { comment: None, classes: Vec::new(), functions: Vec::new() };
+    let mut parser = Parser {
+        comment: None,
+        classes: Vec::new(),
+        functions: Vec::new(),
+    };
     // Index of the rule currently receiving name expressions
     enum Target {
         Class(usize),
@@ -570,7 +619,10 @@ fn parse_parser(xml: &str) -> Option<Parser> {
                     }
                     "classRange" if started => {
                         if let Some(re) = attr("mainExpr").and_then(compile) {
-                            parser.classes.push(Rule { main: re, name: Vec::new() });
+                            parser.classes.push(Rule {
+                                main: re,
+                                name: Vec::new(),
+                            });
                             target = Some(Target::Class(parser.classes.len() - 1));
                         } else {
                             target = None;
@@ -578,19 +630,28 @@ fn parse_parser(xml: &str) -> Option<Parser> {
                     }
                     "function" if started => {
                         if let Some(re) = attr("mainExpr").and_then(compile) {
-                            parser.functions.push(Rule { main: re, name: Vec::new() });
+                            parser.functions.push(Rule {
+                                main: re,
+                                name: Vec::new(),
+                            });
                             target = Some(Target::Func(parser.functions.len() - 1));
                         } else {
                             target = None;
                         }
                     }
                     "nameExpr" | "funcNameExpr" if started => {
-                        if let (Some(expr), Some(t)) = (attr("expr").and_then(compile), target.as_ref()) {
+                        if let (Some(expr), Some(t)) =
+                            (attr("expr").and_then(compile), target.as_ref())
+                        {
                             let in_class_name = stack.last().is_some_and(|s| s == "className");
                             let in_func_name = stack.last().is_some_and(|s| s == "functionName");
                             match t {
-                                Target::Class(i) if in_class_name => parser.classes[*i].name.push(expr),
-                                Target::Func(i) if in_func_name => parser.functions[*i].name.push(expr),
+                                Target::Class(i) if in_class_name => {
+                                    parser.classes[*i].name.push(expr)
+                                }
+                                Target::Func(i) if in_func_name => {
+                                    parser.functions[*i].name.push(expr)
+                                }
                                 _ => {}
                             }
                         }
@@ -611,11 +672,16 @@ fn parse_parser(xml: &str) -> Option<Parser> {
             }
         }
     }
-    if parser.functions.is_empty() && parser.classes.is_empty() { None } else { Some(parser) }
+    if parser.functions.is_empty() && parser.classes.is_empty() {
+        None
+    } else {
+        Some(parser)
+    }
 }
 
 fn load_parser(lang: Language) -> Option<Arc<Parser>> {
-    static CACHE: OnceLock<Mutex<HashMap<&'static str, Option<Arc<Parser>>>>> = OnceLock::new();
+    type ParserCache = Mutex<HashMap<&'static str, Option<Arc<Parser>>>>;
+    static CACHE: OnceLock<ParserCache> = OnceLock::new();
     let stem = file_stem(lang)?;
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     let mut map = cache.lock().ok()?;
@@ -637,7 +703,11 @@ fn blank_out(text: &str, re: &Regex) -> String {
     let mut last = 0;
     for m in re.find_iter(text).flatten().take(20_000) {
         out.push_str(&text[last..m.start()]);
-        out.extend(text[m.start()..m.end()].chars().map(|c| if c == '\n' { '\n' } else { ' ' }));
+        out.extend(
+            text[m.start()..m.end()]
+                .chars()
+                .map(|c| if c == '\n' { '\n' } else { ' ' }),
+        );
         last = m.end();
     }
     out.push_str(&text[last..]);
@@ -669,11 +739,18 @@ fn run(parser: &Parser, content: &str) -> Vec<DocumentSymbol> {
         Err(i) => i,
     };
     let mut out: Vec<DocumentSymbol> = Vec::new();
-    for (rules, kind) in [(&parser.classes, SymbolKind::StructOrClass), (&parser.functions, SymbolKind::Function)] {
+    for (rules, kind) in [
+        (&parser.classes, SymbolKind::StructOrClass),
+        (&parser.functions, SymbolKind::Function),
+    ] {
         for rule in rules {
             for m in rule.main.find_iter(&text).flatten().take(5_000) {
                 if let Some(name) = name_of(rule, m.as_str()) {
-                    out.push(DocumentSymbol { name, kind, line: line_of(m.start()) });
+                    out.push(DocumentSymbol {
+                        name,
+                        kind,
+                        line: line_of(m.start()),
+                    });
                 }
             }
         }
@@ -705,7 +782,10 @@ pub fn symbols_for(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                 for l in &lines {
                     *seen.entry(*l).or_insert(0usize) += 1;
                 }
-                syms.retain(|s| !(seen.get(&s.line).copied().unwrap_or(0) > 1 && keywords.contains(&s.name.as_str())));
+                syms.retain(|s| {
+                    !(seen.get(&s.line).copied().unwrap_or(0) > 1
+                        && keywords.contains(&s.name.as_str()))
+                });
                 return syms;
             }
         }
@@ -736,7 +816,7 @@ mod tests {
     #[test]
     fn emulates_conditionals_and_numbered_recursion() {
         // (?(?=x)A|B): "x" must be followed by A, anything else by B
-        let re = compile(&format!("^(?(?=x)xA|BB)$")).expect("conditional compiles");
+        let re = compile("^(?(?=x)xA|BB)$").expect("conditional compiles");
         assert!(re.is_match("xA").unwrap_or(false));
         assert!(re.is_match("BB").unwrap_or(false));
         assert!(!re.is_match("xBB").unwrap_or(true));
@@ -749,10 +829,17 @@ mod tests {
     /// Informational: how many of the installed Notepad++ parsers compile (skipped when absent).
     #[test]
     fn installed_parsers_report() {
-        let Some(dir) = super::super::dict::search_dirs("functionList").into_iter().find(|d| d.is_dir()) else { return };
+        let Some(dir) = super::super::dict::search_dirs("functionList")
+            .into_iter()
+            .find(|d| d.is_dir())
+        else {
+            return;
+        };
         let (mut ok, mut total) = (0, 0);
         for e in std::fs::read_dir(dir).unwrap().flatten() {
-            if e.path().extension().is_some_and(|x| x == "xml") && e.file_name() != "overrideMap.xml" {
+            if e.path().extension().is_some_and(|x| x == "xml")
+                && e.file_name() != "overrideMap.xml"
+            {
                 total += 1;
                 let xml = std::fs::read_to_string(e.path()).unwrap_or_default();
                 if parse_parser(&xml).is_some() {

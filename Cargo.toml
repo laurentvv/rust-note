@@ -1,16 +1,15 @@
 [package]
 name = "rust-note"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Laurent VOLFF"]
 description = "Clean-room high-performance code and text editor in Rust (Scintilla & Notepad++ compatibility)"
 
 [dependencies]
-anyhow = "1.0.104"
 base64 = "0.23.1"
 chrono = "0.4.40"
-clap = { version = "4.6.7", features = ["derive"] }
-eframe = { version = "0.33.3", default-features = false, features = ["default_fonts", "glow"] }
+eframe = { version = "0.37.0", default-features = false, features = ["default_fonts", "glow"] }
+egui = { version = "0.37.0", features = ["monochrome_emoji_fonts"] }
 encoding_rs = "0.8.35"
 regex = "1.12.3"
 rfd = "0.17.2"
@@ -18,3 +17,15 @@ urlencoding = "2.1.3"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 fancy-regex = "0.20.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-registry = "0.100.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[build-dependencies]
+winres = "0.1.12"

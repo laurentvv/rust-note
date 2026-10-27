@@ -69,7 +69,11 @@ pub fn parse_keywords(xml: &str) -> Vec<String> {
                     .replace("&lt;", "<")
                     .replace("&gt;", ">")
                     .replace("&quot;", "\"");
-                if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.' || c == ':') {
+                if !name.is_empty()
+                    && name
+                        .chars()
+                        .all(|c| c.is_alphanumeric() || c == '_' || c == '.' || c == ':')
+                {
                     out.push(name);
                 }
             }
@@ -83,9 +87,13 @@ pub fn parse_keywords(xml: &str) -> Vec<String> {
 #[must_use]
 pub fn dictionary(lang: Language) -> Vec<String> {
     static CACHE: OnceLock<Mutex<HashMap<&'static str, Vec<String>>>> = OnceLock::new();
-    let Some(stem) = file_stem(lang) else { return Vec::new() };
+    let Some(stem) = file_stem(lang) else {
+        return Vec::new();
+    };
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let Ok(mut map) = cache.lock() else { return Vec::new() };
+    let Ok(mut map) = cache.lock() else {
+        return Vec::new();
+    };
     if let Some(v) = map.get(stem) {
         return v.clone();
     }

@@ -42,7 +42,15 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
             let level = trimmed.chars().take_while(|c| *c == '#').count();
             if level > 0 && level <= 6 && trimmed[level..].starts_with(' ') {
                 let name = trimmed[level..].trim().to_string();
-                symbols.push(DocumentSymbol { name, kind: if level == 1 { SymbolKind::StructOrClass } else { SymbolKind::Function }, line: line_num });
+                symbols.push(DocumentSymbol {
+                    name,
+                    kind: if level == 1 {
+                        SymbolKind::StructOrClass
+                    } else {
+                        SymbolKind::Function
+                    },
+                    line: line_num,
+                });
             }
             continue;
         }
@@ -60,110 +68,224 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
 
         match lang {
             Language::Rust => {
-                if let Some(rest) = trimmed.strip_prefix("pub fn ").or_else(|| trimmed.strip_prefix("fn ")) {
+                if let Some(rest) = trimmed
+                    .strip_prefix("pub fn ")
+                    .or_else(|| trimmed.strip_prefix("fn "))
+                {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
-                } else if let Some(rest) = trimmed.strip_prefix("pub struct ").or_else(|| trimmed.strip_prefix("struct ")) {
+                } else if let Some(rest) = trimmed
+                    .strip_prefix("pub struct ")
+                    .or_else(|| trimmed.strip_prefix("struct "))
+                {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
-                } else if let Some(rest) = trimmed.strip_prefix("pub enum ").or_else(|| trimmed.strip_prefix("enum ")) {
+                } else if let Some(rest) = trimmed
+                    .strip_prefix("pub enum ")
+                    .or_else(|| trimmed.strip_prefix("enum "))
+                {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Enum, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Enum,
+                            line: line_num,
+                        });
                     }
-                } else if let Some(rest) = trimmed.strip_prefix("pub trait ").or_else(|| trimmed.strip_prefix("trait ")) {
+                } else if let Some(rest) = trimmed
+                    .strip_prefix("pub trait ")
+                    .or_else(|| trimmed.strip_prefix("trait "))
+                {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::InterfaceOrTrait, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::InterfaceOrTrait,
+                            line: line_num,
+                        });
                     }
                 }
             }
             Language::Python => {
                 if let Some(rest) = trimmed.strip_prefix("def ") {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("class ") {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
                 }
             }
             Language::JavaScript | Language::TypeScript => {
                 if let Some(rest) = trimmed.strip_prefix("function ") {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("class ") {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("export function ") {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("interface ") {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::InterfaceOrTrait, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::InterfaceOrTrait,
+                            line: line_num,
+                        });
                     }
                 }
             }
             Language::Go => {
                 if let Some(rest) = trimmed.strip_prefix("func ") {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if trimmed.contains("struct {") {
-                    if let Some(name) = extract_first_word(trimmed.strip_prefix("type ").unwrap_or(trimmed)) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                    if let Some(name) =
+                        extract_first_word(trimmed.strip_prefix("type ").unwrap_or(trimmed))
+                    {
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
                 }
             }
             Language::GdScript => {
                 if let Some(rest) = trimmed.strip_prefix("func ") {
                     if let Some(name) = extract_identifier_before(rest, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = trimmed.strip_prefix("class_name ") {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
                 }
             }
             _ => {
                 // Generic heuristic for the remaining languages (C-family, Ruby, Lua, PHP, shell, SQL...)
                 const MODS: [&str; 18] = [
-                    "public ", "private ", "protected ", "internal ", "static ", "async ", "export ",
-                    "default ", "final ", "abstract ", "override ", "open ", "sealed ", "local ",
-                    "extern ", "virtual ", "inline ", "partial ",
+                    "public ",
+                    "private ",
+                    "protected ",
+                    "internal ",
+                    "static ",
+                    "async ",
+                    "export ",
+                    "default ",
+                    "final ",
+                    "abstract ",
+                    "override ",
+                    "open ",
+                    "sealed ",
+                    "local ",
+                    "extern ",
+                    "virtual ",
+                    "inline ",
+                    "partial ",
                 ];
                 let mut t = trimmed;
                 while let Some(rest) = MODS.iter().find_map(|m| t.strip_prefix(m)) {
                     t = rest.trim_start();
                 }
                 let func_kw = ["def ", "function ", "func ", "fun ", "sub ", "fn ", "proc "];
-                let class_kw = ["class ", "module ", "object ", "struct ", "record ", "namespace "];
+                let class_kw = [
+                    "class ",
+                    "module ",
+                    "object ",
+                    "struct ",
+                    "record ",
+                    "namespace ",
+                ];
                 let iface_kw = ["interface ", "trait ", "protocol "];
                 if let Some(rest) = func_kw.iter().find_map(|k| t.strip_prefix(k)) {
-                    let name = if rest.contains('(') { extract_identifier_before(rest, '(') } else { extract_first_word(rest) };
+                    let name = if rest.contains('(') {
+                        extract_identifier_before(rest, '(')
+                    } else {
+                        extract_first_word(rest)
+                    };
                     if let Some(name) = name {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = class_kw.iter().find_map(|k| t.strip_prefix(k)) {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::StructOrClass, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::StructOrClass,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = iface_kw.iter().find_map(|k| t.strip_prefix(k)) {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::InterfaceOrTrait, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::InterfaceOrTrait,
+                            line: line_num,
+                        });
                     }
                 } else if let Some(rest) = t.strip_prefix("enum ") {
                     if let Some(name) = extract_first_word(rest) {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Enum, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Enum,
+                            line: line_num,
+                        });
                     }
                 } else if matches!(lang, Language::Sql) {
                     let prefix = "CREATE OR REPLACE ";
-                    let normalized: String = if t.len() >= prefix.len() && t[..prefix.len()].eq_ignore_ascii_case(prefix) {
+                    let normalized: String = if t.len() >= prefix.len()
+                        && t[..prefix.len()].eq_ignore_ascii_case(prefix)
+                    {
                         format!("CREATE {}", &t[prefix.len()..])
                     } else {
                         t.to_string()
@@ -179,8 +301,20 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                         if upper.starts_with(kw) {
                             let rest = &t[kw.len()..];
                             let rest = rest.strip_prefix("IF NOT EXISTS ").unwrap_or(rest);
-                            if let Some(name) = rest.split(|c: char| c == '(' || c.is_whitespace()).next().filter(|n| !n.is_empty()) {
-                                symbols.push(DocumentSymbol { name: name.trim_matches(|c| c == '[' || c == ']' || c == '`' || c == '"').to_string(), kind, line: line_num });
+                            if let Some(name) = rest
+                                .split(|c: char| c == '(' || c.is_whitespace())
+                                .next()
+                                .filter(|n| !n.is_empty())
+                            {
+                                symbols.push(DocumentSymbol {
+                                    name: name
+                                        .trim_matches(|c| {
+                                            c == '[' || c == ']' || c == '`' || c == '"'
+                                        })
+                                        .to_string(),
+                                    kind,
+                                    line: line_num,
+                                });
                             }
                             break;
                         }
@@ -189,18 +323,39 @@ pub fn extract_symbols(content: &str, lang: Language) -> Vec<DocumentSymbol> {
                     if let Some(idx) = t.find("()") {
                         let name = t[..idx].trim();
                         if !name.is_empty() && !name.contains(' ') {
-                            symbols.push(DocumentSymbol { name: name.to_string(), kind: SymbolKind::Function, line: line_num });
+                            symbols.push(DocumentSymbol {
+                                name: name.to_string(),
+                                kind: SymbolKind::Function,
+                                line: line_num,
+                            });
                         }
                     }
-                } else if matches!(lang, Language::C | Language::Cpp | Language::Cs | Language::Java | Language::Kotlin | Language::Swift | Language::Dart | Language::Php)
-                    && !line.starts_with([' ', '\t'])
+                } else if matches!(
+                    lang,
+                    Language::C
+                        | Language::Cpp
+                        | Language::Cs
+                        | Language::Java
+                        | Language::Kotlin
+                        | Language::Swift
+                        | Language::Dart
+                        | Language::Php
+                ) && !line.starts_with([' ', '\t'])
                     && t.contains('(')
                     && (t.ends_with(')') || t.ends_with('{'))
                     && !t.ends_with(';')
-                    && !["if", "for", "while", "switch", "return", "else", "do", "catch"].iter().any(|k| t.starts_with(k))
+                    && ![
+                        "if", "for", "while", "switch", "return", "else", "do", "catch",
+                    ]
+                    .iter()
+                    .any(|k| t.starts_with(k))
                 {
                     if let Some(name) = extract_identifier_before(t, '(') {
-                        symbols.push(DocumentSymbol { name, kind: SymbolKind::Function, line: line_num });
+                        symbols.push(DocumentSymbol {
+                            name,
+                            kind: SymbolKind::Function,
+                            line: line_num,
+                        });
                     }
                 }
             }
@@ -280,9 +435,12 @@ def main():
 
     #[test]
     fn test_python_class_with_bases() {
-        let syms = extract_symbols("class Alpha(Base):
+        let syms = extract_symbols(
+            "class Alpha(Base):
     pass
-", Language::Python);
+",
+            Language::Python,
+        );
         assert_eq!(syms[0].name, "Alpha");
     }
 
@@ -290,10 +448,16 @@ def main():
     fn test_generic_symbols() {
         let rb = "class Foo\n  def bar(x)\n  end\nend\n";
         let syms = extract_symbols(rb, Language::Ruby);
-        assert_eq!(syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), vec!["Foo", "bar"]);
+        assert_eq!(
+            syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
+            vec!["Foo", "bar"]
+        );
         let c = "int main(int argc, char **argv) {\n  if (x) {\n  }\n}\nstatic void helper(void)\n{\n}\n";
         let syms = extract_symbols(c, Language::C);
-        assert_eq!(syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), vec!["main", "helper"]);
+        assert_eq!(
+            syms.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
+            vec!["main", "helper"]
+        );
         let md = "# Title\n## Part\ntext\n";
         assert_eq!(extract_symbols(md, Language::Markdown).len(), 2);
         let sql = "CREATE TABLE users (id int);\n";

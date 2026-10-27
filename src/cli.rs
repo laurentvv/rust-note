@@ -4,7 +4,10 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct CliArgs {
+    /// Accepted for Notepad++ shell-integration compatibility: rust-note instances are
+    /// always independent processes, so this flag is inherently the default behavior.
     pub multi_inst: bool,
+    /// Accepted for Notepad++ compatibility; rust-note has no plugin subsystem, no-op.
     pub no_plugin: bool,
     pub no_session: bool,
     pub no_tab_bar: bool,
@@ -56,7 +59,10 @@ impl CliArgs {
                 }
             } else if let Some(val) = arg.strip_prefix("-l=").or_else(|| arg.strip_prefix("-l")) {
                 cli.language = Some(val.to_string());
-            } else if let Some(val) = arg.strip_prefix("-titleAdd=").or_else(|| arg.strip_prefix("--titleAdd=")) {
+            } else if let Some(val) = arg
+                .strip_prefix("-titleAdd=")
+                .or_else(|| arg.strip_prefix("--titleAdd="))
+            {
                 cli.title_add = Some(val.trim_matches('"').to_string());
             } else if !arg.starts_with('-') {
                 cli.files.push(PathBuf::from(arg));

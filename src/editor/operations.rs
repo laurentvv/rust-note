@@ -117,12 +117,7 @@ pub fn move_line_down(text: &str, line_num: usize) -> String {
 
 /// Sorts lines with options.
 #[must_use]
-pub fn sort_lines(
-    text: &str,
-    ascending: bool,
-    case_sensitive: bool,
-    by_length: bool,
-) -> String {
+pub fn sort_lines(text: &str, ascending: bool, case_sensitive: bool, by_length: bool) -> String {
     let mut lines: Vec<&str> = text.split('\n').map(|l| l.trim_end_matches('\r')).collect();
 
     lines.sort_by(|a, b| {
@@ -133,11 +128,7 @@ pub fn sort_lines(
         } else {
             a.to_lowercase().cmp(&b.to_lowercase())
         };
-        if ascending {
-            order
-        } else {
-            order.reverse()
-        }
+        if ascending { order } else { order.reverse() }
     });
 
     lines.join("\n")
@@ -310,7 +301,10 @@ mod tests {
         let s = "hello_world";
         assert_eq!(convert_case(s, CaseMode::Uppercase), "HELLO_WORLD");
         assert_eq!(convert_case("HELLO", CaseMode::Lowercase), "hello");
-        assert_eq!(convert_case("hello world", CaseMode::ProperCase), "Hello World");
+        assert_eq!(
+            convert_case("hello world", CaseMode::ProperCase),
+            "Hello World"
+        );
     }
 
     #[test]

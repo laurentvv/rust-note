@@ -59,13 +59,19 @@ pub fn hex_to_ascii(text: &str) -> Result<String, String> {
 
 /// Converts decimal integer text to hexadecimal format (0x...) (from NppConverter.dll).
 pub fn dec_to_hex(text: &str) -> Result<String, String> {
-    let val: i64 = text.trim().parse().map_err(|e| format!("Invalid integer: {e}"))?;
+    let val: i64 = text
+        .trim()
+        .parse()
+        .map_err(|e| format!("Invalid integer: {e}"))?;
     Ok(format!("0x{val:X}"))
 }
 
 /// Converts hexadecimal text (with or without 0x prefix) to decimal integer (from NppConverter.dll).
 pub fn hex_to_dec(text: &str) -> Result<String, String> {
-    let clean = text.trim().trim_start_matches("0x").trim_start_matches("0X");
+    let clean = text
+        .trim()
+        .trim_start_matches("0x")
+        .trim_start_matches("0X");
     let val = i64::from_str_radix(clean, 16).map_err(|e| format!("Invalid hex integer: {e}"))?;
     Ok(val.to_string())
 }
@@ -75,7 +81,9 @@ pub fn hex_to_dec(text: &str) -> Result<String, String> {
 pub fn quoted_printable_encode(text: &str) -> String {
     let mut out = String::new();
     for byte in text.bytes() {
-        if ((33..=126).contains(&byte) && byte != b'=') || matches!(byte, b' ' | b'\t' | b'\r' | b'\n') {
+        if ((33..=126).contains(&byte) && byte != b'=')
+            || matches!(byte, b' ' | b'\t' | b'\r' | b'\n')
+        {
             out.push(byte as char);
         } else {
             out.push_str(&format!("={byte:02X}"));
@@ -133,13 +141,15 @@ fn html_escape(s: &str) -> String {
 /// Exports document content to stand-alone RTF document (from NppExport.dll).
 #[must_use]
 pub fn export_to_rtf(title: &str, content: &str) -> String {
-    let mut out = String::from("{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1033{\\fonttbl{\\f0\\fnil\\fcharset0 Consolas;}}\n");
+    let mut out = String::from(
+        "{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1033{\\fonttbl{\\f0\\fnil\\fcharset0 Consolas;}}\n",
+    );
     out.push_str("{\\colortbl ;\\red220\\green220\\blue220;\\red32\\green32\\blue32;\\red120\\green120\\blue120;}\n");
     out.push_str("\\viewkind4\\uc1\\pard\\f0\\fs20 ");
-    
+
     // Header title
     out.push_str(&format!("\\b {} \\b0\\par\\par\n", rtf_escape(title)));
-    
+
     for line in content.lines() {
         out.push_str(&rtf_escape(line));
         out.push_str("\\par\n");
@@ -156,7 +166,7 @@ fn rtf_escape(s: &str) -> String {
             '{' => out.push_str("\\{"),
             '}' => out.push_str("\\}"),
             '\n' => out.push_str("\\par\n"),
-            '\r' => {},
+            '\r' => {}
             _ if c.is_ascii() => out.push(c),
             _ => out.push_str(&format!("\\u{}?", c as u32)),
         }
@@ -207,7 +217,10 @@ impl ConversionPanelState {
 
     pub fn sync_from_hex(&mut self, text: &str) {
         self.hex_val = text.to_string();
-        let clean = text.trim().trim_start_matches("0x").trim_start_matches("0X");
+        let clean = text
+            .trim()
+            .trim_start_matches("0x")
+            .trim_start_matches("0X");
         if let Ok(num) = i64::from_str_radix(clean, 16) {
             self.dec_val = num.to_string();
             self.bin_val = format!("{num:b}");

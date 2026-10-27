@@ -1,21 +1,10 @@
 //! rust-note — Modern, high-performance clean-room code and text editor in Rust.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![allow(clippy::collapsible_if)]
 
-pub mod app;
-pub mod buffer;
-pub mod cli;
-pub mod editor;
-pub mod i18n;
-pub mod plugins;
-pub mod search;
-pub mod settings;
-pub mod syntax;
-pub mod ui;
-
-use app::RustNoteApp;
-use cli::CliArgs;
 use eframe::egui;
+use rust_note::app::RustNoteApp;
+use rust_note::cli::CliArgs;
+use rust_note::ui;
 
 fn main() -> eframe::Result<()> {
     let cli = CliArgs::parse();
