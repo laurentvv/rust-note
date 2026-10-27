@@ -1,6 +1,6 @@
 [package]
 name = "rust-note"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Laurent VOLFF"]
 description = "Clean-room high-performance code and text editor in Rust (Scintilla & Notepad++ compatibility)"
@@ -25,3 +25,6 @@ opt-level = 3
 lto = "thin"
 codegen-units = 1
 strip = "symbols"
+
+[build-dependencies]
+winres = "0.1.12"

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  rust-note MSI installer (WiX v4/v5 schema).
+
+  Build:
+    1) cargo build (in release mode)
+    2) wix build -arch x64 -d ProductVersion=0.2.0 installer/rust-note.wxs
+         -o target/wix/rust-note-0.2.0-x64.msi
+
+  The "ContextMenu" feature (checked by default) adds, via HKLM registry keys:
+    * "Edit with rust-note" on any file (classic menu / "Show more options" on Windows 11)
+    * "Open rust-note here" on folders and folder backgrounds
+    * rust-note in the "Open with" list of common text/code extensions
+  Everything is removed cleanly on uninstall because MSI tracks the keys it wrote.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="rust-note"
+      Manufacturer="Laurent VOLFF"
+      Version="$(ProductVersion)"
+      UpgradeCode="9A3FDE57-9EFD-43A7-954D-59B853B04E38"
+      Scope="perMachine"
+      Language="1033"
+      Codepage="1252">
+    <SummaryInformation
+        Description="rust-note — modern, fast text and code editor (Notepad++ compatible)" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of rust-note is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="assets\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/laurentvv/rust-note" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/laurentvv/rust-note" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="rust-note" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut
+            Id="AppShortcut"
+            Name="rust-note"
+            Description="rust-note — modern text and code editor"
+            Target="[INSTALLFOLDER]rust-note.exe"
+            WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM" Key="Software\laurentvv\rust-note" Name="shortcut"
+            Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="rust-note" Level="1" AllowAbsent="no">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <Feature Id="ContextMenu"
+          Title="Explorer context menu entry"
+          Description="Adds 'Edit with rust-note' to the Explorer right-click menu (classic menu on Windows 11) and rust-note to 'Open with' for common text file types."
+          Level="1" TypicalDefault="install">
+        <ComponentRef Id="CtxMenuAnyFile" />
+        <ComponentRef Id="CtxMenuDirectory" />
+        <ComponentRef Id="CtxMenuBackground" />
+        <ComponentRef Id="OpenWithProgIds" />
+      </Feature>
+    </Feature>
+
+    <!-- Main files -->
+    <Component Id="MainExecutable" Guid="*" Directory="INSTALLFOLDER">
+      <File Id="RustNoteExe" Source="target\release\rust-note.exe" Name="rust-note.exe" KeyPath="yes" />
+      <!-- Start > Run "rust-note" works whatever the working directory -->
+      <RegistryValue Root="HKLM" Key="Software\Microsoft\Windows\CurrentVersion\App Paths\rust-note.exe"
+          Type="string" Value="[INSTALLFOLDER]rust-note.exe" />
+    </Component>
+
+    <!-- "Edit with rust-note" on any file -->
+    <Component Id="CtxMenuAnyFile" Guid="*" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM" Key="Software\Classes\*\shell\EditWithRustNote"
+          Type="string" Value="Edit with rust-note" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\*\shell\EditWithRustNote" Name="Icon"
+          Type="string" Value="[INSTALLFOLDER]rust-note.exe" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\*\shell\EditWithRustNote\command"
+          Type="string" Value="&quot;[INSTALLFOLDER]rust-note.exe&quot; &quot;%1&quot;" />
+    </Component>
+
+    <!-- "Open rust-note here" on a folder -->
+    <Component Id="CtxMenuDirectory" Guid="*" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\shell\OpenRustNoteHere"
+          Type="string" Value="Open rust-note here" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\shell\OpenRustNoteHere" Name="Icon"
+          Type="string" Value="[INSTALLFOLDER]rust-note.exe" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\shell\OpenRustNoteHere\command"
+          Type="string" Value="&quot;[INSTALLFOLDER]rust-note.exe&quot; &quot;%1&quot;" />
+    </Component>
+
+    <!-- "Open rust-note here" on the background of an open folder -->
+    <Component Id="CtxMenuBackground" Guid="*" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\Background\shell\OpenRustNoteHere"
+          Type="string" Value="Open rust-note here" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\Background\shell\OpenRustNoteHere" Name="Icon"
+          Type="string" Value="[INSTALLFOLDER]rust-note.exe" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\Directory\Background\shell\OpenRustNoteHere\command"
+          Type="string" Value="&quot;[INSTALLFOLDER]rust-note.exe&quot;" />
+    </Component>
+
+    <!-- rust-note in the "Open with" list (non-default) of common text/code types -->
+    <Component Id="OpenWithProgIds" Guid="*" Directory="INSTALLFOLDER">
+      <RegistryValue Root="HKLM" Key="Software\Classes\rust-note.editor"
+          Type="string" Value="rust-note Document" KeyPath="yes" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\rust-note.editor\DefaultIcon"
+          Type="string" Value="[INSTALLFOLDER]rust-note.exe,0" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\rust-note.editor\shell\open\command"
+          Type="string" Value="&quot;[INSTALLFOLDER]rust-note.exe&quot; &quot;%1&quot;" />
+      <!-- one OpenWithProgids value per extension -->
+      <RegistryValue Root="HKLM" Key="Software\Classes\.txt\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.md\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.log\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.rs\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.toml\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.json\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.xml\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.html\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.htm\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.css\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.js\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.ts\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.py\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.ini\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.yaml\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.yml\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.bat\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.ps1\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.sh\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.sql\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.c\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.h\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.cpp\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.hpp\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.cs\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.go\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.java\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.lua\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.rb\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.php\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.vue\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.svelte\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.conf\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.cfg\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.csv\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+      <RegistryValue Root="HKLM" Key="Software\Classes\.tex\OpenWithProgids" Name="rust-note.editor" Type="string" Value="" />
+    </Component>
+  </Package>
+</Wix>

@@ -7,24 +7,37 @@ use eframe::egui::IconData;
 pub fn generate_app_icon() -> IconData {
     const W: u32 = 64;
     const H: u32 = 64;
-    let mut rgba = vec![0u8; (W * H * 4) as usize];
-
-    for y in 0..H {
-        for x in 0..W {
-            let idx = ((y * W + x) * 4) as usize;
-            let (r, g, b, a) = pixel_shader(x as f32, y as f32);
-            rgba[idx] = r;
-            rgba[idx + 1] = g;
-            rgba[idx + 2] = b;
-            rgba[idx + 3] = a;
-        }
-    }
-
     IconData {
-        rgba,
+        rgba: render_icon_rgba(W),
         width: W,
         height: H,
     }
+}
+
+/// Renders the icon at an arbitrary pixel size by 2x2 supersampling the 64-unit
+/// shader space (used for the window icon at 64 and the .ico assets up to 256).
+#[must_use]
+pub fn render_icon_rgba(size: u32) -> Vec<u8> {
+    let scale = 64.0_f32 / size as f32;
+    let mut rgba = vec![0u8; (size * size * 4) as usize];
+    for y in 0..size {
+        for x in 0..size {
+            let mut acc = [0u32; 4];
+            for (sx, sy) in [(0.25_f32, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
+                let (r, g, b, a) = pixel_shader((x as f32 + sx) * scale, (y as f32 + sy) * scale);
+                acc[0] += u32::from(r);
+                acc[1] += u32::from(g);
+                acc[2] += u32::from(b);
+                acc[3] += u32::from(a);
+            }
+            let idx = ((y * size + x) * 4) as usize;
+            rgba[idx] = (acc[0] / 4) as u8;
+            rgba[idx + 1] = (acc[1] / 4) as u8;
+            rgba[idx + 2] = (acc[2] / 4) as u8;
+            rgba[idx + 3] = (acc[3] / 4) as u8;
+        }
+    }
+    rgba
 }
 
 /// Evaluates color and alpha at coordinate (x, y) for 64x64 icon canvas.
@@ -77,12 +90,12 @@ fn pixel_shader(x: f32, y: f32) -> (u8, u8, u8, u8) {
         g = 47;
         b = 68;
 
-        // Paper border
-        if x == paper_left as u32 as f32
-            || x == paper_right as u32 as f32
-            || y == paper_top as u32 as f32
-            || y == paper_bottom as u32 as f32
-        {
+        // Paper border (2 source pixels wide: resolution-independent when supersampled)
+        let on_border = (paper_left..=paper_left + 1.0).contains(&x)
+            || (paper_right - 1.0..=paper_right).contains(&x)
+            || (paper_top..=paper_top + 1.0).contains(&y)
+            || (paper_bottom - 1.0..=paper_bottom).contains(&y);
+        if on_border {
             r = 65;
             g = 68;
             b = 95;
