@@ -76,6 +76,10 @@ impl RustNoteApp {
                                     if let Some(doc_mut) = self.docs.get_mut(active_idx) {
                                         doc_mut.cursor_line = sym.line;
                                         doc_mut.cursor_col = 1;
+                                        // Move the editor caret too, or the TextEdit resync
+                                        // overwrites cursor_line on the next frame
+                                        let start = doc_mut.char_index_of_line(sym.line);
+                                        doc_mut.pending_selection = Some((start, start));
                                     }
                                     self.set_notification(format!("Jumped to '{}' (line {})", sym.name, sym.line));
                                 }

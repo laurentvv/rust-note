@@ -1707,6 +1707,7 @@ dependencies = [
  "base64",
  "chrono",
  "eframe",
+ "egui",
  "encoding_rs",
  "fancy-regex",
  "regex",

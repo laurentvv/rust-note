@@ -294,7 +294,7 @@ pub fn render_about(ctx: &Context, state: &mut AboutState) {
         .resizable(false)
         .default_size([420.0, 220.0])
         .show(ctx, |ui| {
-            ui.heading("rust-note v0.1.0");
+            ui.heading(format!("rust-note v{}", env!("CARGO_PKG_VERSION")));
             ui.label(tr(
                 "A modern, elegant, and high-performance code editor built with Rust and egui.",
             ));
