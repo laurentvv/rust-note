@@ -3,7 +3,7 @@
 use crate::app::RustNoteApp;
 use crate::buffer::{Encoding, EolFormat};
 use crate::editor::operations::{self, CaseMode};
-use crate::i18n::{self, tr, UiLang};
+use crate::i18n::{self, UiLang, tr};
 use crate::plugins;
 use crate::syntax::Language;
 use crate::ui::dialogs::FindTab;
@@ -68,8 +68,15 @@ impl RustNoteApp {
                         ui.menu_button(tr("Recent Files"), |ui| {
                             let recents = self.settings.recent_files.clone();
                             for (n, path) in recents.iter().enumerate() {
-                                let name = path.file_name().map_or_else(|| path.display().to_string(), |f| f.to_string_lossy().to_string());
-                                if ui.button(format!("{}  {name}", n + 1)).on_hover_text(path.display().to_string()).clicked() {
+                                let name = path.file_name().map_or_else(
+                                    || path.display().to_string(),
+                                    |f| f.to_string_lossy().to_string(),
+                                );
+                                if ui
+                                    .button(format!("{}  {name}", n + 1))
+                                    .on_hover_text(path.display().to_string())
+                                    .clicked()
+                                {
                                     self.open_path(path.clone());
                                     ui.close();
                                 }
@@ -134,7 +141,10 @@ impl RustNoteApp {
                             }
                             ui.close();
                         }
-                        if ui.button(tr("Remove Consecutive Duplicate Lines")).clicked() {
+                        if ui
+                            .button(tr("Remove Consecutive Duplicate Lines"))
+                            .clicked()
+                        {
                             if let Some(doc) = self.active_doc_mut() {
                                 let dedup = operations::remove_duplicate_lines(&doc.content, true);
                                 doc.set_content(dedup);
@@ -162,14 +172,16 @@ impl RustNoteApp {
                         ui.separator();
                         if ui.button(tr("Sort Lines Ascending")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
-                                let sorted = operations::sort_lines(&doc.content, true, true, false);
+                                let sorted =
+                                    operations::sort_lines(&doc.content, true, true, false);
                                 doc.set_content(sorted);
                             }
                             ui.close();
                         }
                         if ui.button(tr("Sort Lines Descending")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
-                                let sorted = operations::sort_lines(&doc.content, false, true, false);
+                                let sorted =
+                                    operations::sort_lines(&doc.content, false, true, false);
                                 doc.set_content(sorted);
                             }
                             ui.close();
@@ -200,21 +212,24 @@ impl RustNoteApp {
                         }
                         if ui.button(tr("Proper Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
-                                let c = operations::convert_case(&doc.content, CaseMode::ProperCase);
+                                let c =
+                                    operations::convert_case(&doc.content, CaseMode::ProperCase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
                         if ui.button(tr("Invert Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
-                                let c = operations::convert_case(&doc.content, CaseMode::InvertCase);
+                                let c =
+                                    operations::convert_case(&doc.content, CaseMode::InvertCase);
                                 doc.set_content(c);
                             }
                             ui.close();
                         }
                         if ui.button(tr("Random Case")).clicked() {
                             if let Some(doc) = self.active_doc_mut() {
-                                let c = operations::convert_case(&doc.content, CaseMode::RandomCase);
+                                let c =
+                                    operations::convert_case(&doc.content, CaseMode::RandomCase);
                                 doc.set_content(c);
                             }
                             ui.close();
@@ -346,7 +361,10 @@ impl RustNoteApp {
                 ui.menu_button(tr("View"), |ui| {
                     ui.checkbox(&mut self.word_wrap, tr("Word Wrap"));
                     ui.checkbox(&mut self.show_line_numbers, tr("Line Numbers"));
-                    ui.checkbox(&mut self.show_function_list, tr("Function List (Ctrl+Alt+L)"));
+                    ui.checkbox(
+                        &mut self.show_function_list,
+                        tr("Function List (Ctrl+Alt+L)"),
+                    );
                     let mut follow = self.settings.follow_windows_theme;
                     ui.checkbox(&mut follow, tr("Follow Windows Theme"));
                     if follow != self.settings.follow_windows_theme {
@@ -465,7 +483,10 @@ impl RustNoteApp {
                     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
                     ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
                         for l in langs {
-                            if ui.selectable_label(self.current_language == l, l.name()).clicked() {
+                            if ui
+                                .selectable_label(self.current_language == l, l.name())
+                                .clicked()
+                            {
                                 self.current_language = l;
                                 if let Some(doc) = self.active_doc_mut() {
                                     doc.language = Some(l);
@@ -591,7 +612,10 @@ impl RustNoteApp {
                         ui.close();
                     }
                     ui.separator();
-                    if ui.button(tr("Trim Trailing Space and Save\tAlt+Shift+S")).clicked() {
+                    if ui
+                        .button(tr("Trim Trailing Space and Save\tAlt+Shift+S"))
+                        .clicked()
+                    {
                         self.trim_and_save();
                         ui.close();
                     }
@@ -605,7 +629,10 @@ impl RustNoteApp {
                             ui.close();
                         }
                         if ui.button(tr("Wikipedia Search\tAlt+F3")).clicked() {
-                            self.web_lookup(&ctx, "https://en.wikipedia.org/wiki/Special:Search?search=");
+                            self.web_lookup(
+                                &ctx,
+                                "https://en.wikipedia.org/wiki/Special:Search?search=",
+                            );
                             ui.close();
                         }
                         if ui.button(tr("Search the web")).clicked() {
@@ -626,7 +653,9 @@ impl RustNoteApp {
                         ui.close();
                     }
                     if ui.button(tr("Documentation & Sources")).clicked() {
-                        ctx.open_url(egui::OpenUrl::new_tab("https://github.com/laurentvv/rust-note"));
+                        ctx.open_url(egui::OpenUrl::new_tab(
+                            "https://github.com/laurentvv/rust-note",
+                        ));
                         ui.close();
                     }
                 });

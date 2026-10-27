@@ -44,15 +44,21 @@ impl RustNoteApp {
 
                                 // Windows 11 style: rounded pill, filled when active
                                 let fill = if is_active {
-                                    if light { Color32::from_rgb(238, 242, 254) } else { Color32::from_rgb(45, 48, 82) }
+                                    if light {
+                                        Color32::from_rgb(238, 242, 254)
+                                    } else {
+                                        Color32::from_rgb(45, 48, 82)
+                                    }
                                 } else {
                                     Color32::TRANSPARENT
                                 };
                                 ui.horizontal(|ui| {
                                     let tab_btn = ui.add(
-                                        Button::new(RichText::new(label).color(text_color).strong())
-                                            .fill(fill)
-                                            .corner_radius(6),
+                                        Button::new(
+                                            RichText::new(label).color(text_color).strong(),
+                                        )
+                                        .fill(fill)
+                                        .corner_radius(6),
                                     );
                                     if tab_btn.clicked() {
                                         self.active_index = idx;
@@ -63,7 +69,11 @@ impl RustNoteApp {
                                     }
 
                                     tab_btn.context_menu(|ui| {
-                                        let pin_label = if doc.is_pinned { tr("Unpin Tab") } else { tr("Pin Tab") };
+                                        let pin_label = if doc.is_pinned {
+                                            tr("Unpin Tab")
+                                        } else {
+                                            tr("Pin Tab")
+                                        };
                                         if ui.button(pin_label).clicked() {
                                             toggle_pin_idx = Some(idx);
                                             ui.close();
@@ -135,7 +145,11 @@ impl RustNoteApp {
                             }
 
                             ui.add_space(2.0);
-                            if ui.button(icon(glyph::ADD)).on_hover_text(tr("New tab (Ctrl+N)")).clicked() {
+                            if ui
+                                .button(icon(glyph::ADD))
+                                .on_hover_text(tr("New tab (Ctrl+N)"))
+                                .clicked()
+                            {
                                 self.new_document();
                             }
                         });

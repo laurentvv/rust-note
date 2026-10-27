@@ -8,7 +8,9 @@ fn main() {
         return;
     }
     if !std::path::Path::new("assets/icon.ico").exists() {
-        println!("cargo:warning=assets/icon.ico missing - run `cargo run --example gen_icon` to generate it");
+        println!(
+            "cargo:warning=assets/icon.ico missing - run `cargo run --example gen_icon` to generate it"
+        );
         return;
     }
 

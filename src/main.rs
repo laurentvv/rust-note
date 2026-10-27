@@ -1,10 +1,10 @@
 //! rust-note — Modern, high-performance clean-room code and text editor in Rust.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use eframe::egui;
 use rust_note::app::RustNoteApp;
 use rust_note::cli::CliArgs;
 use rust_note::ui;
-use eframe::egui;
 
 fn main() -> eframe::Result<()> {
     let cli = CliArgs::parse();

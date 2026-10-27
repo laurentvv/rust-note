@@ -2,7 +2,7 @@
 //! and the 0x Quick Conversion panel.
 
 use crate::app::RustNoteApp;
-use crate::i18n::{self, tr, UiLang};
+use crate::i18n::{self, UiLang, tr};
 use crate::ui::dialogs::{self, DialogAction};
 use eframe::egui::{self, Context, RichText};
 
@@ -65,40 +65,47 @@ impl RustNoteApp {
         // Keyboard shortcuts
         if self.show_shortcuts {
             let mut open = true;
-            egui::Window::new(tr("Keyboard Shortcuts")).open(&mut open).resizable(false).show(ctx, |ui| {
-                let rows: [(&str, &str); 23] = [
-                    ("New / Open / Save", "Ctrl+N / Ctrl+O / Ctrl+S"),
-                    ("Save All / Save As", "Ctrl+Shift+S / Ctrl+Alt+S"),
-                    ("Close tab / Restore tab", "Ctrl+W / Ctrl+Shift+T"),
-                    ("Next / previous tab", "Ctrl+PageDown / Ctrl+PageUp"),
-                    ("Find / Replace", "Ctrl+F / Ctrl+H"),
-                    ("Find next / previous", "F3 / Shift+F3"),
-                    ("Go to line", "Ctrl+G"),
-                    ("Command palette", "Ctrl+Shift+P"),
-                    ("Duplicate line", "Ctrl+D"),
-                    ("Delete line", "Ctrl+L"),
-                    ("Move line up / down", "Ctrl+Shift+Up / Down"),
-                    ("Join lines", "Ctrl+J"),
-                    ("Toggle comment", "Ctrl+Q"),
-                    ("UPPERCASE / lowercase", "Ctrl+Shift+U / Ctrl+U"),
-                    ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
-                    ("Select word / line", "Double-click / Triple-click"),
-                    ("Extend selection", "Shift+click, Shift+arrows"),
-                    ("Select by word", "Ctrl+Shift+Left / Right"),
-                    ("Column selection", "Alt+drag"),
-                    ("Auto-completion", "type 2+ letters, Ctrl+Space"),
-                    ("Accept / navigate completion", "Tab or Enter / Up, Down"),
-                    ("Zoom", "Ctrl+Wheel, Ctrl+Plus / Minus / 0"),
-                    ("Function list", "Ctrl+Alt+L"),
-                ];
-                egui::Grid::new("shortcut_grid").num_columns(2).spacing([24.0, 4.0]).striped(true).show(ui, |ui| {
-                    for (what, keys) in rows {
-                        ui.label(tr(what));
-                        ui.label(RichText::new(tr_keys(keys)).monospace().strong());
-                        ui.end_row();
-                    }
+            egui::Window::new(tr("Keyboard Shortcuts"))
+                .open(&mut open)
+                .resizable(false)
+                .show(ctx, |ui| {
+                    let rows: [(&str, &str); 23] = [
+                        ("New / Open / Save", "Ctrl+N / Ctrl+O / Ctrl+S"),
+                        ("Save All / Save As", "Ctrl+Shift+S / Ctrl+Alt+S"),
+                        ("Close tab / Restore tab", "Ctrl+W / Ctrl+Shift+T"),
+                        ("Next / previous tab", "Ctrl+PageDown / Ctrl+PageUp"),
+                        ("Find / Replace", "Ctrl+F / Ctrl+H"),
+                        ("Find next / previous", "F3 / Shift+F3"),
+                        ("Go to line", "Ctrl+G"),
+                        ("Command palette", "Ctrl+Shift+P"),
+                        ("Duplicate line", "Ctrl+D"),
+                        ("Delete line", "Ctrl+L"),
+                        ("Move line up / down", "Ctrl+Shift+Up / Down"),
+                        ("Join lines", "Ctrl+J"),
+                        ("Toggle comment", "Ctrl+Q"),
+                        ("UPPERCASE / lowercase", "Ctrl+Shift+U / Ctrl+U"),
+                        ("Undo / Redo", "Ctrl+Z / Ctrl+Y"),
+                        ("Select word / line", "Double-click / Triple-click"),
+                        ("Extend selection", "Shift+click, Shift+arrows"),
+                        ("Select by word", "Ctrl+Shift+Left / Right"),
+                        ("Column selection", "Alt+drag"),
+                        ("Auto-completion", "type 2+ letters, Ctrl+Space"),
+                        ("Accept / navigate completion", "Tab or Enter / Up, Down"),
+                        ("Zoom", "Ctrl+Wheel, Ctrl+Plus / Minus / 0"),
+                        ("Function list", "Ctrl+Alt+L"),
+                    ];
+                    egui::Grid::new("shortcut_grid")
+                        .num_columns(2)
+                        .spacing([24.0, 4.0])
+                        .striped(true)
+                        .show(ui, |ui| {
+                            for (what, keys) in rows {
+                                ui.label(tr(what));
+                                ui.label(RichText::new(tr_keys(keys)).monospace().strong());
+                                ui.end_row();
+                            }
+                        });
                 });
-            });
             self.show_shortcuts = open;
         }
 
@@ -113,7 +120,9 @@ impl RustNoteApp {
                 .resizable(false)
                 .default_size([380.0, 240.0])
                 .show(ctx, |ui| {
-                    ui.label(RichText::new(tr("Bidirectional Real-Time Multi-Base Converter")).strong());
+                    ui.label(
+                        RichText::new(tr("Bidirectional Real-Time Multi-Base Converter")).strong(),
+                    );
                     ui.separator();
                     ui.horizontal(|ui| {
                         ui.label("DEC: ");
@@ -142,7 +151,11 @@ impl RustNoteApp {
                     });
                     ui.horizontal(|ui| {
                         ui.label("ASCII:");
-                        ui.label(RichText::new(&self.conversion_panel.char_val).monospace().strong());
+                        ui.label(
+                            RichText::new(&self.conversion_panel.char_val)
+                                .monospace()
+                                .strong(),
+                        );
                     });
                     ui.separator();
                     ui.horizontal(|ui| {

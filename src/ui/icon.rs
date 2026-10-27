@@ -79,7 +79,8 @@ fn pixel_shader(x: f32, y: f32) -> (u8, u8, u8, u8) {
     let paper_bottom = 53.0_f32;
     let fold_size = 8.0_f32;
 
-    let in_paper_rect = (paper_left..=paper_right).contains(&x) && (paper_top..=paper_bottom).contains(&y);
+    let in_paper_rect =
+        (paper_left..=paper_right).contains(&x) && (paper_top..=paper_bottom).contains(&y);
     let in_fold_cut = x > (paper_right - fold_size)
         && y < (paper_top + fold_size)
         && ((x - (paper_right - fold_size)) + ((paper_top + fold_size) - y) > fold_size);
@@ -107,12 +108,15 @@ fn pixel_shader(x: f32, y: f32) -> (u8, u8, u8, u8) {
         // Upper loop top
         let is_loop_top = (24.0_f32..=35.0_f32).contains(&x) && (20.0_f32..=24.0_f32).contains(&y);
         // Upper loop right
-        let is_loop_right = (33.0_f32..=37.0_f32).contains(&x) && (22.0_f32..=32.0_f32).contains(&y);
+        let is_loop_right =
+            (33.0_f32..=37.0_f32).contains(&x) && (22.0_f32..=32.0_f32).contains(&y);
         // Upper loop middle
         let is_loop_mid = (24.0_f32..=35.0_f32).contains(&x) && (29.0_f32..=33.0_f32).contains(&y);
         // Diagonal right leg
         let leg_dist = ((x - 27.0_f32) - (y - 32.0_f32)).abs();
-        let is_leg = (32.0_f32..=44.0_f32).contains(&y) && leg_dist <= 2.2_f32 && (26.0_f32..=38.0_f32).contains(&x);
+        let is_leg = (32.0_f32..=44.0_f32).contains(&y)
+            && leg_dist <= 2.2_f32
+            && (26.0_f32..=38.0_f32).contains(&x);
 
         if is_stem || is_loop_top || is_loop_right || is_loop_mid || is_leg {
             // Bright vibrant Rust Orange

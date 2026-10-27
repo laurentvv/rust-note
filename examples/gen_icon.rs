@@ -11,7 +11,7 @@ fn ico_entry(size: u32, rgba: &[u8]) -> Vec<u8> {
     let w = size;
     let h = size;
     let row_bits = w as usize;
-    let and_stride = (row_bits + 31) / 32 * 4; // 1 bit per pixel, padded to 4 bytes
+    let and_stride = row_bits.div_ceil(32) * 4; // 1 bit per pixel, padded to 4 bytes
 
     let mut data = Vec::with_capacity(40 + (w * h * 4) as usize + and_stride * h as usize);
     // BITMAPINFOHEADER (height counts the AND mask rows)

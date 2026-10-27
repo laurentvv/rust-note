@@ -99,75 +99,351 @@ struct PaletteCommand {
 }
 
 const COMMANDS: &[PaletteCommand] = &[
-    PaletteCommand { id: Cmd::NewDoc, label: "New", shortcut: "Ctrl+N" },
-    PaletteCommand { id: Cmd::OpenFile, label: "Open...", shortcut: "Ctrl+O" },
-    PaletteCommand { id: Cmd::Save, label: "Save", shortcut: "Ctrl+S" },
-    PaletteCommand { id: Cmd::SaveAs, label: "Save As...", shortcut: "Ctrl+Alt+S" },
-    PaletteCommand { id: Cmd::SaveAll, label: "Save All", shortcut: "Ctrl+Shift+S" },
-    PaletteCommand { id: Cmd::CloseTab, label: "Close", shortcut: "Ctrl+W" },
-    PaletteCommand { id: Cmd::CloseAll, label: "Close All", shortcut: "Ctrl+Shift+W" },
-    PaletteCommand { id: Cmd::RestoreClosedTab, label: "Restore Closed Tab", shortcut: "Ctrl+Shift+T" },
-    PaletteCommand { id: Cmd::ExportHtml, label: "Export to HTML...", shortcut: "" },
-    PaletteCommand { id: Cmd::ExportRtf, label: "Export to RTF (Rich Text)...", shortcut: "" },
-    PaletteCommand { id: Cmd::Exit, label: "Exit", shortcut: "Alt+F4" },
-    PaletteCommand { id: Cmd::Undo, label: "Undo", shortcut: "Ctrl+Z" },
-    PaletteCommand { id: Cmd::Redo, label: "Redo", shortcut: "Ctrl+Y" },
-    PaletteCommand { id: Cmd::DuplicateLine, label: "Duplicate Current Line", shortcut: "Ctrl+D" },
-    PaletteCommand { id: Cmd::MoveLineUp, label: "Move Line Up", shortcut: "" },
-    PaletteCommand { id: Cmd::MoveLineDown, label: "Move Line Down", shortcut: "" },
-    PaletteCommand { id: Cmd::SortLinesAsc, label: "Sort Lines Ascending", shortcut: "" },
-    PaletteCommand { id: Cmd::SortLinesDesc, label: "Sort Lines Descending", shortcut: "" },
-    PaletteCommand { id: Cmd::JoinLines, label: "Join Lines", shortcut: "Ctrl+J" },
-    PaletteCommand { id: Cmd::ToggleComment, label: "Toggle Comment", shortcut: "Ctrl+Q" },
-    PaletteCommand { id: Cmd::UpperCase, label: "UPPERCASE", shortcut: "Ctrl+Shift+U" },
-    PaletteCommand { id: Cmd::LowerCase, label: "lowercase", shortcut: "Ctrl+U" },
-    PaletteCommand { id: Cmd::ProperCase, label: "Proper Case", shortcut: "" },
-    PaletteCommand { id: Cmd::TrimTrailing, label: "Trim Trailing Space", shortcut: "" },
-    PaletteCommand { id: Cmd::TrimLeading, label: "Trim Leading Space", shortcut: "" },
-    PaletteCommand { id: Cmd::TabToSpace, label: "TAB to Space", shortcut: "" },
-    PaletteCommand { id: Cmd::SpaceToTab, label: "Space to TAB", shortcut: "" },
-    PaletteCommand { id: Cmd::RemoveDuplicates, label: "Remove Duplicate Lines", shortcut: "" },
-    PaletteCommand { id: Cmd::DateTimeShort, label: "Date Time (short)", shortcut: "" },
-    PaletteCommand { id: Cmd::DateTimeLong, label: "Date Time (long)", shortcut: "" },
-    PaletteCommand { id: Cmd::EolWindows, label: "Windows (CR LF)", shortcut: "" },
-    PaletteCommand { id: Cmd::EolUnix, label: "Unix (LF)", shortcut: "" },
-    PaletteCommand { id: Cmd::EolMac, label: "Macintosh (CR)", shortcut: "" },
-    PaletteCommand { id: Cmd::Find, label: "Find...", shortcut: "Ctrl+F" },
-    PaletteCommand { id: Cmd::Replace, label: "Replace...", shortcut: "Ctrl+H" },
-    PaletteCommand { id: Cmd::FindNext, label: "Find Next", shortcut: "F3" },
-    PaletteCommand { id: Cmd::FindPrev, label: "Find Previous", shortcut: "Shift+F3" },
-    PaletteCommand { id: Cmd::GoToLine, label: "Go to Line...", shortcut: "Ctrl+G" },
-    PaletteCommand { id: Cmd::Count, label: "Count", shortcut: "" },
-    PaletteCommand { id: Cmd::FindAllOpen, label: "Find in Open Documents", shortcut: "" },
-    PaletteCommand { id: Cmd::WordWrap, label: "Word Wrap", shortcut: "" },
-    PaletteCommand { id: Cmd::LineNumbers, label: "Line Numbers", shortcut: "" },
-    PaletteCommand { id: Cmd::FunctionList, label: "Function List", shortcut: "Ctrl+Alt+L" },
-    PaletteCommand { id: Cmd::ZoomIn, label: "Zoom In", shortcut: "" },
-    PaletteCommand { id: Cmd::ZoomOut, label: "Zoom Out", shortcut: "" },
-    PaletteCommand { id: Cmd::ZoomReset, label: "Restore Default Zoom", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeDarkMode, label: "Theme: Obsidian Dark (default)", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeClassicLight, label: "Theme: Classic Light", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeMonokai, label: "Theme: Monokai", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeSolarizedDark, label: "Theme: Solarized Dark", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeSolarizedLight, label: "Theme: Solarized Light", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeZenburn, label: "Theme: Zenburn", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeFluentDark, label: "Theme: Fluent Dark (Windows 11)", shortcut: "" },
-    PaletteCommand { id: Cmd::ThemeFluentLight, label: "Theme: Fluent Light (Windows 11)", shortcut: "" },
-    PaletteCommand { id: Cmd::FollowWindowsTheme, label: "Follow Windows Theme", shortcut: "" },
-    PaletteCommand { id: Cmd::Base64Encode, label: "Base64 Encode", shortcut: "" },
-    PaletteCommand { id: Cmd::Base64Decode, label: "Base64 Decode", shortcut: "" },
-    PaletteCommand { id: Cmd::UrlEncode, label: "URL Encode", shortcut: "" },
-    PaletteCommand { id: Cmd::UrlDecode, label: "URL Decode", shortcut: "" },
-    PaletteCommand { id: Cmd::AsciiToHex, label: "ASCII to HEX", shortcut: "" },
-    PaletteCommand { id: Cmd::HexToAscii, label: "HEX to ASCII", shortcut: "" },
-    PaletteCommand { id: Cmd::DecToHex, label: "DEC to HEX (0x...)", shortcut: "" },
-    PaletteCommand { id: Cmd::HexToDec, label: "HEX to DEC", shortcut: "" },
-    PaletteCommand { id: Cmd::ConverterPanel, label: "0x Quick Conversion Panel...", shortcut: "" },
-    PaletteCommand { id: Cmd::DocumentSummary, label: "Document Summary", shortcut: "" },
-    PaletteCommand { id: Cmd::TrimAndSave, label: "Trim Trailing Space and Save", shortcut: "Alt+Shift+S" },
-    PaletteCommand { id: Cmd::OpenInNewInstance, label: "Open in New Instance", shortcut: "Alt+F6" },
-    PaletteCommand { id: Cmd::KeyboardShortcuts, label: "Keyboard Shortcuts", shortcut: "" },
-    PaletteCommand { id: Cmd::About, label: "About rust-note", shortcut: "" },
+    PaletteCommand {
+        id: Cmd::NewDoc,
+        label: "New",
+        shortcut: "Ctrl+N",
+    },
+    PaletteCommand {
+        id: Cmd::OpenFile,
+        label: "Open...",
+        shortcut: "Ctrl+O",
+    },
+    PaletteCommand {
+        id: Cmd::Save,
+        label: "Save",
+        shortcut: "Ctrl+S",
+    },
+    PaletteCommand {
+        id: Cmd::SaveAs,
+        label: "Save As...",
+        shortcut: "Ctrl+Alt+S",
+    },
+    PaletteCommand {
+        id: Cmd::SaveAll,
+        label: "Save All",
+        shortcut: "Ctrl+Shift+S",
+    },
+    PaletteCommand {
+        id: Cmd::CloseTab,
+        label: "Close",
+        shortcut: "Ctrl+W",
+    },
+    PaletteCommand {
+        id: Cmd::CloseAll,
+        label: "Close All",
+        shortcut: "Ctrl+Shift+W",
+    },
+    PaletteCommand {
+        id: Cmd::RestoreClosedTab,
+        label: "Restore Closed Tab",
+        shortcut: "Ctrl+Shift+T",
+    },
+    PaletteCommand {
+        id: Cmd::ExportHtml,
+        label: "Export to HTML...",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ExportRtf,
+        label: "Export to RTF (Rich Text)...",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::Exit,
+        label: "Exit",
+        shortcut: "Alt+F4",
+    },
+    PaletteCommand {
+        id: Cmd::Undo,
+        label: "Undo",
+        shortcut: "Ctrl+Z",
+    },
+    PaletteCommand {
+        id: Cmd::Redo,
+        label: "Redo",
+        shortcut: "Ctrl+Y",
+    },
+    PaletteCommand {
+        id: Cmd::DuplicateLine,
+        label: "Duplicate Current Line",
+        shortcut: "Ctrl+D",
+    },
+    PaletteCommand {
+        id: Cmd::MoveLineUp,
+        label: "Move Line Up",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::MoveLineDown,
+        label: "Move Line Down",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::SortLinesAsc,
+        label: "Sort Lines Ascending",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::SortLinesDesc,
+        label: "Sort Lines Descending",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::JoinLines,
+        label: "Join Lines",
+        shortcut: "Ctrl+J",
+    },
+    PaletteCommand {
+        id: Cmd::ToggleComment,
+        label: "Toggle Comment",
+        shortcut: "Ctrl+Q",
+    },
+    PaletteCommand {
+        id: Cmd::UpperCase,
+        label: "UPPERCASE",
+        shortcut: "Ctrl+Shift+U",
+    },
+    PaletteCommand {
+        id: Cmd::LowerCase,
+        label: "lowercase",
+        shortcut: "Ctrl+U",
+    },
+    PaletteCommand {
+        id: Cmd::ProperCase,
+        label: "Proper Case",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::TrimTrailing,
+        label: "Trim Trailing Space",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::TrimLeading,
+        label: "Trim Leading Space",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::TabToSpace,
+        label: "TAB to Space",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::SpaceToTab,
+        label: "Space to TAB",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::RemoveDuplicates,
+        label: "Remove Duplicate Lines",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::DateTimeShort,
+        label: "Date Time (short)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::DateTimeLong,
+        label: "Date Time (long)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::EolWindows,
+        label: "Windows (CR LF)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::EolUnix,
+        label: "Unix (LF)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::EolMac,
+        label: "Macintosh (CR)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::Find,
+        label: "Find...",
+        shortcut: "Ctrl+F",
+    },
+    PaletteCommand {
+        id: Cmd::Replace,
+        label: "Replace...",
+        shortcut: "Ctrl+H",
+    },
+    PaletteCommand {
+        id: Cmd::FindNext,
+        label: "Find Next",
+        shortcut: "F3",
+    },
+    PaletteCommand {
+        id: Cmd::FindPrev,
+        label: "Find Previous",
+        shortcut: "Shift+F3",
+    },
+    PaletteCommand {
+        id: Cmd::GoToLine,
+        label: "Go to Line...",
+        shortcut: "Ctrl+G",
+    },
+    PaletteCommand {
+        id: Cmd::Count,
+        label: "Count",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::FindAllOpen,
+        label: "Find in Open Documents",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::WordWrap,
+        label: "Word Wrap",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::LineNumbers,
+        label: "Line Numbers",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::FunctionList,
+        label: "Function List",
+        shortcut: "Ctrl+Alt+L",
+    },
+    PaletteCommand {
+        id: Cmd::ZoomIn,
+        label: "Zoom In",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ZoomOut,
+        label: "Zoom Out",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ZoomReset,
+        label: "Restore Default Zoom",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeDarkMode,
+        label: "Theme: Obsidian Dark (default)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeClassicLight,
+        label: "Theme: Classic Light",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeMonokai,
+        label: "Theme: Monokai",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeSolarizedDark,
+        label: "Theme: Solarized Dark",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeSolarizedLight,
+        label: "Theme: Solarized Light",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeZenburn,
+        label: "Theme: Zenburn",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeFluentDark,
+        label: "Theme: Fluent Dark (Windows 11)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ThemeFluentLight,
+        label: "Theme: Fluent Light (Windows 11)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::FollowWindowsTheme,
+        label: "Follow Windows Theme",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::Base64Encode,
+        label: "Base64 Encode",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::Base64Decode,
+        label: "Base64 Decode",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::UrlEncode,
+        label: "URL Encode",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::UrlDecode,
+        label: "URL Decode",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::AsciiToHex,
+        label: "ASCII to HEX",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::HexToAscii,
+        label: "HEX to ASCII",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::DecToHex,
+        label: "DEC to HEX (0x...)",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::HexToDec,
+        label: "HEX to DEC",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::ConverterPanel,
+        label: "0x Quick Conversion Panel...",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::DocumentSummary,
+        label: "Document Summary",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::TrimAndSave,
+        label: "Trim Trailing Space and Save",
+        shortcut: "Alt+Shift+S",
+    },
+    PaletteCommand {
+        id: Cmd::OpenInNewInstance,
+        label: "Open in New Instance",
+        shortcut: "Alt+F6",
+    },
+    PaletteCommand {
+        id: Cmd::KeyboardShortcuts,
+        label: "Keyboard Shortcuts",
+        shortcut: "",
+    },
+    PaletteCommand {
+        id: Cmd::About,
+        label: "About rust-note",
+        shortcut: "",
+    },
 ];
 
 /// Case-insensitive fuzzy score: every query char must appear in order.
@@ -308,12 +584,12 @@ impl RustNoteApp {
                 }
             }
             Cmd::Find => {
-                let _ = self.open_find(crate::ui::dialogs::FindTab::Find);
+                self.open_find(crate::ui::dialogs::FindTab::Find);
                 self.palette.is_open = false;
                 return;
             }
             Cmd::Replace => {
-                let _ = self.open_find(crate::ui::dialogs::FindTab::Replace);
+                self.open_find(crate::ui::dialogs::FindTab::Replace);
                 self.palette.is_open = false;
                 return;
             }
@@ -414,7 +690,11 @@ impl RustNoteApp {
         let Some(light) = crate::ui::fonts::windows_apps_light() else {
             return;
         };
-        let wanted = if light { EditorTheme::FluentLight } else { EditorTheme::FluentDark };
+        let wanted = if light {
+            EditorTheme::FluentLight
+        } else {
+            EditorTheme::FluentDark
+        };
         if self.theme != wanted {
             self.set_theme(wanted, ctx);
         }
@@ -475,7 +755,10 @@ impl RustNoteApp {
                                 format!("{}\t{}", tr(cmd.label), cmd.shortcut)
                             };
                             let text = RichText::new(label);
-                            let resp = ui.selectable_label(is_selected, if is_selected { text.strong() } else { text });
+                            let resp = ui.selectable_label(
+                                is_selected,
+                                if is_selected { text.strong() } else { text },
+                            );
                             if resp.clicked() {
                                 run = Some(cmd.id);
                             }
@@ -485,7 +768,9 @@ impl RustNoteApp {
 
                 ui.separator();
                 ui.label(
-                    RichText::new(format!("{}  ↑↓   Enter   Esc", tr("Navigate"))).weak().small(),
+                    RichText::new(format!("{}  ↑↓   Enter   Esc", tr("Navigate")))
+                        .weak()
+                        .small(),
                 );
             });
 
@@ -493,7 +778,8 @@ impl RustNoteApp {
         ctx.input_mut(|i| {
             use egui::{Key, Modifiers};
             if i.consume_key(Modifiers::NONE, Key::ArrowDown) {
-                self.palette.selected = (self.palette.selected + 1).min(filtered.len().saturating_sub(1));
+                self.palette.selected =
+                    (self.palette.selected + 1).min(filtered.len().saturating_sub(1));
             }
             if i.consume_key(Modifiers::NONE, Key::ArrowUp) {
                 self.palette.selected = self.palette.selected.saturating_sub(1);
@@ -525,7 +811,10 @@ mod tests {
     #[test]
     fn fuzzy_matches_subsequence_with_boundaries_first() {
         assert!(fuzzy_score("stl", "Sort Lines Ascending").is_some());
-        assert!(fuzzy_score("stl", "Sort Lines Ascending").unwrap() > fuzzy_score("stl", "Best Lines").unwrap_or(0));
+        assert!(
+            fuzzy_score("stl", "Sort Lines Ascending").unwrap()
+                > fuzzy_score("stl", "Best Lines").unwrap_or(0)
+        );
         assert!(fuzzy_score("savea", "Save All").is_some());
         assert!(fuzzy_score("xyz", "Save All").is_none());
         assert_eq!(fuzzy_score("", "anything"), Some(0));
@@ -539,9 +828,22 @@ mod tests {
         let untranslated: Vec<&str> = COMMANDS
             .iter()
             .map(|c| c.label)
-            .filter(|l| tr(l) == *l && !matches!(*l, "lowercase" | "UPPERCASE" | "Windows (CR LF)" | "Unix (LF)" | "Macintosh (CR)"))
+            .filter(|l| {
+                tr(l) == *l
+                    && !matches!(
+                        *l,
+                        "lowercase"
+                            | "UPPERCASE"
+                            | "Windows (CR LF)"
+                            | "Unix (LF)"
+                            | "Macintosh (CR)"
+                    )
+            })
             .collect();
         crate::i18n::set_lang(crate::i18n::UiLang::English);
-        assert!(untranslated.is_empty(), "untranslated palette labels: {untranslated:#?}");
+        assert!(
+            untranslated.is_empty(),
+            "untranslated palette labels: {untranslated:#?}"
+        );
     }
 }

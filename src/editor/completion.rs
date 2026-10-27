@@ -19,7 +19,12 @@ pub(crate) fn is_word_char(c: char) -> bool {
 
 /// Keywords of the language plus words already present in the document that start with the
 /// word before the caret.
-pub(crate) fn completion_candidates(content: &str, caret: usize, lang: Language, forced: bool) -> Vec<String> {
+pub(crate) fn completion_candidates(
+    content: &str,
+    caret: usize,
+    lang: Language,
+    forced: bool,
+) -> Vec<String> {
     if content.len() > 2_000_000 {
         return Vec::new();
     }
@@ -35,7 +40,11 @@ pub(crate) fn completion_candidates(content: &str, caret: usize, lang: Language,
     }
     let ci = matches!(lang, Language::Sql | Language::Batch);
     let matches_prefix = |w: &str| {
-        let ok = if ci { w.to_lowercase().starts_with(&prefix.to_lowercase()) } else { w.starts_with(&prefix) };
+        let ok = if ci {
+            w.to_lowercase().starts_with(&prefix.to_lowercase())
+        } else {
+            w.starts_with(&prefix)
+        };
         ok && w != prefix
     };
     let mut set = std::collections::BTreeSet::new();
@@ -52,7 +61,12 @@ pub(crate) fn completion_candidates(content: &str, caret: usize, lang: Language,
     }
     let mut word = String::new();
     let mut word_start = 0usize;
-    for (i, c) in chars.iter().copied().chain(std::iter::once(' ')).enumerate() {
+    for (i, c) in chars
+        .iter()
+        .copied()
+        .chain(std::iter::once(' '))
+        .enumerate()
+    {
         if is_word_char(c) {
             if word.is_empty() {
                 word_start = i;
@@ -83,7 +97,9 @@ pub(crate) fn apply_completion(doc: &mut Document, item: &str, ctx: &egui::Conte
     doc.record_typing();
     let pos = start + item.chars().count();
     let mut st = egui::text_edit::TextEditState::load(ctx, id).unwrap_or_default();
-    st.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(pos))));
+    st.cursor.set_char_range(Some(egui::text::CCursorRange::one(
+        egui::text::CCursor::new(pos),
+    )));
     st.store(ctx, id);
     doc.cursor_char = pos;
 }

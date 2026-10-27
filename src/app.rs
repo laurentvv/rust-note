@@ -122,7 +122,10 @@ impl RustNoteApp {
             }
         }
 
-        let initial_lang = docs.first().and_then(|d| d.language).unwrap_or(Language::PlainText);
+        let initial_lang = docs
+            .first()
+            .and_then(|d| d.language)
+            .unwrap_or(Language::PlainText);
 
         let mut app = Self {
             docs,
@@ -206,7 +209,11 @@ impl RustNoteApp {
 
     pub fn open_path(&mut self, path: PathBuf) {
         // If already open, switch to it
-        if let Some(idx) = self.docs.iter().position(|d| d.path.as_ref() == Some(&path)) {
+        if let Some(idx) = self
+            .docs
+            .iter()
+            .position(|d| d.path.as_ref() == Some(&path))
+        {
             self.active_index = idx;
             return;
         }
@@ -215,7 +222,11 @@ impl RustNoteApp {
             Ok(doc) => {
                 self.settings.push_recent(&path);
                 // Replace the pristine placeholder tab instead of keeping an empty one
-                if self.docs.len() == 1 && self.docs[0].path.is_none() && !self.docs[0].is_dirty && self.docs[0].content.is_empty() {
+                if self.docs.len() == 1
+                    && self.docs[0].path.is_none()
+                    && !self.docs[0].is_dirty
+                    && self.docs[0].content.is_empty()
+                {
                     self.docs.clear();
                 }
                 self.docs.push(doc);
@@ -250,7 +261,13 @@ impl RustNoteApp {
                 if let Err(e) = doc.save_to(&path) {
                     self.set_notification(format!("Save error: {e}"));
                 } else {
-                    self.set_notification(format!("Saved as {}", path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().to_string())));
+                    self.set_notification(format!(
+                        "Saved as {}",
+                        path.file_name().map_or_else(
+                            || path.display().to_string(),
+                            |n| n.to_string_lossy().to_string()
+                        )
+                    ));
                 }
             }
         }
@@ -312,7 +329,9 @@ impl RustNoteApp {
 
     /// Asks the user whether to save a modified document. Returns false if the close must be aborted.
     fn confirm_close(&mut self, idx: usize) -> bool {
-        let Some(doc) = self.docs.get(idx) else { return true };
+        let Some(doc) = self.docs.get(idx) else {
+            return true;
+        };
         if !doc.is_dirty {
             return true;
         }
@@ -398,7 +417,9 @@ impl RustNoteApp {
     }
 
     pub fn close_all_except(&mut self, keep: usize) {
-        let Some(keep_id) = self.docs.get(keep).map(|d| d.id) else { return };
+        let Some(keep_id) = self.docs.get(keep).map(|d| d.id) else {
+            return;
+        };
         let mut i = 0;
         while i < self.docs.len() {
             if self.docs[i].id == keep_id || self.docs[i].is_pinned {
@@ -411,11 +432,7 @@ impl RustNoteApp {
             let doc = self.docs.remove(i);
             self.remember_closed(doc);
         }
-        self.active_index = self
-            .docs
-            .iter()
-            .position(|d| d.id == keep_id)
-            .unwrap_or(0);
+        self.active_index = self.docs.iter().position(|d| d.id == keep_id).unwrap_or(0);
         self.set_notification("Closed other documents");
     }
 
@@ -461,9 +478,18 @@ impl RustNoteApp {
 
     // --- Search & Replace Executions ---
     fn selection_byte_range(doc: &Document) -> (usize, usize) {
-        let mut offsets = doc.content.char_indices().map(|(b, _)| b).chain(std::iter::once(doc.content.len()));
-        let start = offsets.clone().nth(doc.cursor_char).unwrap_or(doc.content.len());
-        let end = offsets.nth(doc.cursor_char + doc.selection_len).unwrap_or(doc.content.len());
+        let mut offsets = doc
+            .content
+            .char_indices()
+            .map(|(b, _)| b)
+            .chain(std::iter::once(doc.content.len()));
+        let start = offsets
+            .clone()
+            .nth(doc.cursor_char)
+            .unwrap_or(doc.content.len());
+        let end = offsets
+            .nth(doc.cursor_char + doc.selection_len)
+            .unwrap_or(doc.content.len());
         (start, end)
     }
 
@@ -474,7 +500,9 @@ impl RustNoteApp {
             self.find_replace.status_message = Some("Enter text to search for".into());
             return false;
         }
-        let Some(doc) = self.docs.get(self.active_index) else { return false };
+        let Some(doc) = self.docs.get(self.active_index) else {
+            return false;
+        };
         let (sel_start, sel_end) = Self::selection_byte_range(doc);
         let from = if forward { sel_end } else { sel_start };
         let result = search::find_from(&doc.content, &query, &opts, from, forward);
@@ -511,10 +539,11 @@ impl RustNoteApp {
         let query = self.find_replace.query.clone();
         let opts = self.find_replace.options.clone();
         if let Some(doc) = self.active_doc() {
-            self.find_replace.status_message = Some(match search::find_all(&doc.content, &query, &opts) {
-                Ok(m) => format!("Count: {} match(es) in the current document", m.len()),
-                Err(e) => e,
-            });
+            self.find_replace.status_message =
+                Some(match search::find_all(&doc.content, &query, &opts) {
+                    Ok(m) => format!("Count: {} match(es) in the current document", m.len()),
+                    Err(e) => e,
+                });
         }
     }
 
@@ -530,9 +559,12 @@ impl RustNoteApp {
         if let Some(doc) = self.active_doc_mut() {
             if !doc.is_readonly && doc.selection_len > 0 {
                 let (s, e) = Self::selection_byte_range(doc);
-                if let Ok(Some((ms, me, _))) = search::find_from(&doc.content, &query, &opts, s, true) {
+                if let Ok(Some((ms, me, _))) =
+                    search::find_from(&doc.content, &query, &opts, s, true)
+                {
                     if ms == s && me == e {
-                        let new_text = search::replacement_for(&doc.content[s..e], &query, &repl, &opts);
+                        let new_text =
+                            search::replacement_for(&doc.content[s..e], &query, &repl, &opts);
                         let mut out = doc.content.clone();
                         out.replace_range(s..e, &new_text);
                         let pos = doc.cursor_char + new_text.chars().count();
@@ -585,10 +617,22 @@ impl RustNoteApp {
         let mut hits = Vec::new();
         let mut error = None;
         for (idx, doc) in self.docs.iter().enumerate() {
-            match search::find_all(&doc.content, &query, &SearchOptions { search_down: true, ..opts.clone() }) {
+            match search::find_all(
+                &doc.content,
+                &query,
+                &SearchOptions {
+                    search_down: true,
+                    ..opts.clone()
+                },
+            ) {
                 Ok(ms) => {
                     for m in ms {
-                        let line_text = doc.content.lines().nth(m.line.saturating_sub(1)).unwrap_or("").trim();
+                        let line_text = doc
+                            .content
+                            .lines()
+                            .nth(m.line.saturating_sub(1))
+                            .unwrap_or("")
+                            .trim();
                         hits.push(dialogs::FindHit {
                             doc_index: idx,
                             doc_title: doc.title.clone(),
@@ -607,7 +651,11 @@ impl RustNoteApp {
         }
         self.find_replace.status_message = Some(match error {
             Some(e) => e,
-            None => format!("Find All: {} hit(s) in {} document(s)", hits.len(), self.docs.len()),
+            None => format!(
+                "Find All: {} hit(s) in {} document(s)",
+                hits.len(),
+                self.docs.len()
+            ),
         });
         self.find_replace.results = hits;
     }
@@ -619,7 +667,10 @@ impl RustNoteApp {
         self.active_index = doc_index;
         let (cs, ce) = {
             let d = &self.docs[doc_index];
-            (d.char_index_of_byte(byte_start), d.char_index_of_byte(byte_end))
+            (
+                d.char_index_of_byte(byte_start),
+                d.char_index_of_byte(byte_end),
+            )
         };
         self.select_chars(cs, ce);
     }
@@ -628,7 +679,12 @@ impl RustNoteApp {
     pub fn open_find(&mut self, tab: FindTab) {
         if let Some(doc) = self.active_doc() {
             if doc.selection_len > 0 && doc.selection_len < 200 {
-                let sel: String = doc.content.chars().skip(doc.cursor_char).take(doc.selection_len).collect();
+                let sel: String = doc
+                    .content
+                    .chars()
+                    .skip(doc.cursor_char)
+                    .take(doc.selection_len)
+                    .collect();
                 if !sel.contains('\n') {
                     self.find_replace.query = sel;
                 }
@@ -641,10 +697,18 @@ impl RustNoteApp {
 
     /// The selected text, or the word under the caret.
     pub fn current_word(&self) -> String {
-        let Some(doc) = self.active_doc() else { return String::new() };
+        let Some(doc) = self.active_doc() else {
+            return String::new();
+        };
         let chars: Vec<char> = doc.content.chars().collect();
         if doc.selection_len > 0 {
-            return chars.iter().skip(doc.cursor_char).take(doc.selection_len).collect::<String>().trim().to_string();
+            return chars
+                .iter()
+                .skip(doc.cursor_char)
+                .take(doc.selection_len)
+                .collect::<String>()
+                .trim()
+                .to_string();
         }
         let at = doc.cursor_char.min(chars.len());
         let mut s = at;
@@ -665,7 +729,10 @@ impl RustNoteApp {
             self.set_notification("Place the caret on a word first");
             return;
         }
-        ctx.open_url(egui::OpenUrl::new_tab(format!("{base}{}", urlencoding::encode(&word))));
+        ctx.open_url(egui::OpenUrl::new_tab(format!(
+            "{base}{}",
+            urlencoding::encode(&word)
+        )));
     }
 
     pub fn trim_and_save(&mut self) {
@@ -680,7 +747,11 @@ impl RustNoteApp {
             return;
         };
         match std::env::current_exe().and_then(|exe| {
-            std::process::Command::new(exe).arg("-multiInst").arg("-nosession").arg(path).spawn()
+            std::process::Command::new(exe)
+                .arg("-multiInst")
+                .arg("-nosession")
+                .arg(path)
+                .spawn()
         }) {
             Ok(_) => self.set_notification("Opened in a new instance"),
             Err(e) => self.set_notification(format!("Cannot start a new instance: {e}")),
@@ -717,7 +788,9 @@ impl RustNoteApp {
         use egui::{Key, KeyboardShortcut, Modifiers};
         let cs = Modifiers::CTRL | Modifiers::SHIFT;
         let ca = Modifiers::CTRL | Modifiers::ALT;
-        let hit = |m: Modifiers, k: Key| ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(m, k)));
+        let hit = |m: Modifiers, k: Key| {
+            ctx.input_mut(|i| i.consume_shortcut(&KeyboardShortcut::new(m, k)))
+        };
 
         if hit(cs, Key::S) {
             self.save_all();
@@ -780,7 +853,9 @@ impl RustNoteApp {
             self.apply_op(|d| operations::duplicate_line(&d.content, d.cursor_line));
         }
         // Esc closes the open Find / Go to Line dialogs
-        if (self.goto_line.is_open || self.find_replace.is_open) && hit(Modifiers::NONE, Key::Escape) {
+        if (self.goto_line.is_open || self.find_replace.is_open)
+            && hit(Modifiers::NONE, Key::Escape)
+        {
             if self.goto_line.is_open {
                 self.goto_line.is_open = false;
             } else {
@@ -885,16 +960,23 @@ impl RustNoteApp {
             ExportKind::Html => ("HTML Document", &["html", "htm"][..], "HTML"),
             ExportKind::Rtf => ("Rich Text Format", &["rtf"][..], "RTF"),
         };
-        if let Some(path) = rfd::FileDialog::new().add_filter(filter_name, exts).save_file() {
+        if let Some(path) = rfd::FileDialog::new()
+            .add_filter(filter_name, exts)
+            .save_file()
+        {
             if let Some(doc) = self.active_doc() {
                 let payload = match kind {
-                    ExportKind::Html => {
-                        plugins::export_to_html(&doc.title, &doc.content, self.current_language.name())
-                    }
+                    ExportKind::Html => plugins::export_to_html(
+                        &doc.title,
+                        &doc.content,
+                        self.current_language.name(),
+                    ),
                     ExportKind::Rtf => plugins::export_to_rtf(&doc.title, &doc.content),
                 };
                 match std::fs::write(&path, payload) {
-                    Ok(()) => self.set_notification(format!("Exported {label} to {}", path.display())),
+                    Ok(()) => {
+                        self.set_notification(format!("Exported {label} to {}", path.display()))
+                    }
                     Err(e) => self.set_notification(format!("Export error: {e}")),
                 }
             }
@@ -909,7 +991,10 @@ impl eframe::App for RustNoteApp {
             self.active_index = self.docs.len().saturating_sub(1);
         }
         // Language is per document
-        if let Some(l) = self.active_doc().map(|d| d.language.unwrap_or(Language::PlainText)) {
+        if let Some(l) = self
+            .active_doc()
+            .map(|d| d.language.unwrap_or(Language::PlainText))
+        {
             self.current_language = l;
         }
 
@@ -933,7 +1018,10 @@ impl eframe::App for RustNoteApp {
         // Window title reflects the active document
         let title = match self.active_doc() {
             Some(d) => {
-                let full = d.path.as_ref().map_or_else(|| d.title.clone(), |p| p.display().to_string());
+                let full = d
+                    .path
+                    .as_ref()
+                    .map_or_else(|| d.title.clone(), |p| p.display().to_string());
                 format!("{}{full} - rust-note", if d.is_dirty { "* " } else { "" })
             }
             None => "rust-note".to_string(),
@@ -969,7 +1057,9 @@ impl eframe::App for RustNoteApp {
         }
 
         // Track the Windows theme (light/dark) for the "Follow Windows Theme" option
-        if self.settings.follow_windows_theme && self.last_theme_check.elapsed() > std::time::Duration::from_secs(5) {
+        if self.settings.follow_windows_theme
+            && self.last_theme_check.elapsed() > std::time::Duration::from_secs(5)
+        {
             self.last_theme_check = std::time::Instant::now();
             self.sync_theme_with_windows(ctx);
         }

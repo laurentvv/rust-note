@@ -19,7 +19,11 @@ use eframe::egui::Color32;
 /// Darkens pastel UI accents on the light theme so they stay readable.
 pub(crate) fn tc(light: bool, r: u8, g: u8, b: u8) -> Color32 {
     if light {
-        Color32::from_rgb((f32::from(r) * 0.45) as u8, (f32::from(g) * 0.45) as u8, (f32::from(b) * 0.55) as u8)
+        Color32::from_rgb(
+            (f32::from(r) * 0.45) as u8,
+            (f32::from(g) * 0.45) as u8,
+            (f32::from(b) * 0.55) as u8,
+        )
     } else {
         Color32::from_rgb(r, g, b)
     }

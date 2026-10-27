@@ -59,7 +59,10 @@ impl CliArgs {
                 }
             } else if let Some(val) = arg.strip_prefix("-l=").or_else(|| arg.strip_prefix("-l")) {
                 cli.language = Some(val.to_string());
-            } else if let Some(val) = arg.strip_prefix("-titleAdd=").or_else(|| arg.strip_prefix("--titleAdd=")) {
+            } else if let Some(val) = arg
+                .strip_prefix("-titleAdd=")
+                .or_else(|| arg.strip_prefix("--titleAdd="))
+            {
                 cli.title_add = Some(val.trim_matches('"').to_string());
             } else if !arg.starts_with('-') {
                 cli.files.push(PathBuf::from(arg));

@@ -15,7 +15,12 @@ fn icons_family() -> FontFamily {
     FontFamily::Name(Arc::from(ICONS_FAMILY))
 }
 
-fn load_first(fonts: &mut egui::FontDefinitions, family: FontFamily, name: &str, candidates: &[&str]) -> bool {
+fn load_first(
+    fonts: &mut egui::FontDefinitions,
+    family: FontFamily,
+    name: &str,
+    candidates: &[&str],
+) -> bool {
     for path in candidates {
         if let Ok(bytes) = std::fs::read(path) {
             fonts
@@ -37,13 +42,19 @@ pub fn install_fonts(ctx: &Context) {
         &mut fonts,
         FontFamily::Proportional,
         "segoe_ui_variable",
-        &[r"C:\Windows\Fonts\SegUIVar.ttf", r"C:\Windows\Fonts\segoeui.ttf"],
+        &[
+            r"C:\Windows\Fonts\SegUIVar.ttf",
+            r"C:\Windows\Fonts\segoeui.ttf",
+        ],
     );
     let mono_ok = load_first(
         &mut fonts,
         FontFamily::Monospace,
         "cascadia_mono",
-        &[r"C:\Windows\Fonts\CascadiaMono.ttf", r"C:\Windows\Fonts\consola.ttf"],
+        &[
+            r"C:\Windows\Fonts\CascadiaMono.ttf",
+            r"C:\Windows\Fonts\consola.ttf",
+        ],
     );
     load_first(
         &mut fonts,
@@ -120,7 +131,10 @@ mod tests {
             super::glyph::COMMAND,
         ] {
             let c = code as u32;
-            assert!((0xE000..=0xF8FF).contains(&c), "glyph U+{c:X} is not a PUA icon code");
+            assert!(
+                (0xE000..=0xF8FF).contains(&c),
+                "glyph U+{c:X} is not a PUA icon code"
+            );
         }
     }
 }

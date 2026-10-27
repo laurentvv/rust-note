@@ -187,7 +187,11 @@ impl EditorTheme {
     #[must_use]
     pub fn visuals(self) -> egui::Visuals {
         let c = self.colors();
-        let mut v = if c.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+        let mut v = if c.dark {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        };
         v.panel_fill = c.panel;
         v.window_fill = c.window;
         v.extreme_bg_color = c.editor;
@@ -196,7 +200,12 @@ impl EditorTheme {
         v.hyperlink_color = c.accent;
         v.override_text_color = Some(c.palette.text);
         // Menus and buttons use the widget strokes: keep them at full text contrast too
-        for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active] {
+        for w in [
+            &mut v.widgets.noninteractive,
+            &mut v.widgets.inactive,
+            &mut v.widgets.hovered,
+            &mut v.widgets.active,
+        ] {
             w.fg_stroke.color = c.palette.text;
         }
         v

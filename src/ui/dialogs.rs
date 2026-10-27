@@ -87,10 +87,7 @@ pub enum DialogAction {
 }
 
 /// Renders the Find & Replace tabbed dialog.
-pub fn render_find_replace(
-    ctx: &Context,
-    state: &mut FindReplaceState,
-) -> DialogAction {
+pub fn render_find_replace(ctx: &Context, state: &mut FindReplaceState) -> DialogAction {
     if !state.is_open {
         return DialogAction::None;
     }
@@ -102,36 +99,49 @@ pub fn render_find_replace(
     let screen = ctx.content_rect();
     Window::new(tr("Find / Replace"))
         .open(&mut is_open)
-        .default_pos(egui::pos2((screen.right() - 520.0).max(10.0), screen.top() + 90.0))
+        .default_pos(egui::pos2(
+            (screen.right() - 520.0).max(10.0),
+            screen.top() + 90.0,
+        ))
         .resizable(true)
         .default_size([480.0, 300.0])
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut state.tab, FindTab::Find, tr("Find"));
                 ui.selectable_value(&mut state.tab, FindTab::Replace, tr("Replace"));
-                ui.selectable_value(&mut state.tab, FindTab::FindAll, tr("Find in Open Documents"));
+                ui.selectable_value(
+                    &mut state.tab,
+                    FindTab::FindAll,
+                    tr("Find in Open Documents"),
+                );
             });
             ui.separator();
 
             let mut enter_pressed = false;
-            egui::Grid::new("find_grid").num_columns(2).spacing([8.0, 6.0]).show(ui, |ui| {
-                ui.label(tr("Find what:"));
-                let r = ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(300.0));
-                if state.focus_query {
-                    r.request_focus();
-                    state.focus_query = false;
-                }
-                if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    enter_pressed = true;
-                    r.request_focus();
-                }
-                ui.end_row();
-                if state.tab == FindTab::Replace {
-                    ui.label(tr("Replace with:"));
-                    ui.add(egui::TextEdit::singleline(&mut state.replacement).desired_width(300.0));
+            egui::Grid::new("find_grid")
+                .num_columns(2)
+                .spacing([8.0, 6.0])
+                .show(ui, |ui| {
+                    ui.label(tr("Find what:"));
+                    let r =
+                        ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(300.0));
+                    if state.focus_query {
+                        r.request_focus();
+                        state.focus_query = false;
+                    }
+                    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        enter_pressed = true;
+                        r.request_focus();
+                    }
                     ui.end_row();
-                }
-            });
+                    if state.tab == FindTab::Replace {
+                        ui.label(tr("Replace with:"));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut state.replacement).desired_width(300.0),
+                        );
+                        ui.end_row();
+                    }
+                });
 
             ui.add_space(6.0);
             ui.horizontal(|ui| {
@@ -151,7 +161,9 @@ pub fn render_find_replace(
             ui.separator();
 
             ui.horizontal_wrapped(|ui| {
-                if ui.button(tr("Find Next")).clicked() || (enter_pressed && state.tab != FindTab::FindAll) {
+                if ui.button(tr("Find Next")).clicked()
+                    || (enter_pressed && state.tab != FindTab::FindAll)
+                {
                     action = DialogAction::FindNext;
                 }
                 if ui.button(tr("Find Previous")).clicked() {
@@ -185,14 +197,29 @@ pub fn render_find_replace(
 
             if state.tab == FindTab::FindAll && !state.results.is_empty() {
                 ui.separator();
-                egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
-                    for hit in &state.results {
-                        let text = format!("{}  ({} {}):  {}", hit.doc_title, tr("line"), hit.line, hit.preview);
-                        if ui.selectable_label(false, egui::RichText::new(text).monospace()).clicked() {
-                            action = DialogAction::JumpTo(hit.doc_index, hit.byte_start, hit.byte_end);
+                egui::ScrollArea::vertical()
+                    .max_height(260.0)
+                    .show(ui, |ui| {
+                        for hit in &state.results {
+                            let text = format!(
+                                "{}  ({} {}):  {}",
+                                hit.doc_title,
+                                tr("line"),
+                                hit.line,
+                                hit.preview
+                            );
+                            if ui
+                                .selectable_label(false, egui::RichText::new(text).monospace())
+                                .clicked()
+                            {
+                                action = DialogAction::JumpTo(
+                                    hit.doc_index,
+                                    hit.byte_start,
+                                    hit.byte_end,
+                                );
+                            }
                         }
-                    }
-                });
+                    });
             }
         });
 
@@ -201,10 +228,7 @@ pub fn render_find_replace(
 }
 
 /// Renders the Go To Line dialog (Ctrl+G).
-pub fn render_go_to_line(
-    ctx: &Context,
-    state: &mut GoToLineState,
-) -> DialogAction {
+pub fn render_go_to_line(ctx: &Context, state: &mut GoToLineState) -> DialogAction {
     if !state.is_open {
         return DialogAction::None;
     }
@@ -219,7 +243,11 @@ pub fn render_go_to_line(
         .resizable(false)
         .default_size([280.0, 140.0])
         .show(ctx, |ui| {
-            ui.label(format!("{} (1 - {}):", tr("Line number"), state.max_lines.max(1)));
+            ui.label(format!(
+                "{} (1 - {}):",
+                tr("Line number"),
+                state.max_lines.max(1)
+            ));
             let response = ui.text_edit_singleline(&mut state.line_input);
             if state.focus {
                 response.request_focus();
@@ -267,12 +295,19 @@ pub fn render_about(ctx: &Context, state: &mut AboutState) {
         .default_size([420.0, 220.0])
         .show(ctx, |ui| {
             ui.heading("rust-note v0.1.0");
-            ui.label(tr("A modern, elegant, and high-performance code editor built with Rust and egui."));
+            ui.label(tr(
+                "A modern, elegant, and high-performance code editor built with Rust and egui.",
+            ));
             ui.separator();
             ui.label(format!("{} Laurent VOLFF", tr("Author:")));
-            ui.label(tr("Engine Architecture: High-performance multi-tab text buffer"));
+            ui.label(tr(
+                "Engine Architecture: High-performance multi-tab text buffer",
+            ));
             ui.separator();
-            ui.hyperlink_to(tr("Source & Docs"), "https://github.com/laurentvv/rust-note");
+            ui.hyperlink_to(
+                tr("Source & Docs"),
+                "https://github.com/laurentvv/rust-note",
+            );
             ui.add_space(8.0);
             if ui.button(tr("OK")).clicked() {
                 close_requested = true;

@@ -6,8 +6,8 @@ use std::fmt;
 pub enum EolFormat {
     #[default]
     Windows, // \r\n
-    Unix,    // \n
-    Mac,     // \r
+    Unix, // \n
+    Mac,  // \r
 }
 
 impl fmt::Display for EolFormat {
