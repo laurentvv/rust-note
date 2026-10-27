@@ -12,6 +12,7 @@ pub struct Settings {
     pub word_wrap: bool,
     pub show_line_numbers: bool,
     pub show_function_list: bool,
+    pub follow_windows_theme: bool,
     pub recent_files: Vec<PathBuf>,
     pub session_files: Vec<PathBuf>,
 }
@@ -25,6 +26,7 @@ impl Default for Settings {
             word_wrap: true,
             show_line_numbers: true,
             show_function_list: false,
+            follow_windows_theme: false,
             recent_files: Vec::new(),
             session_files: Vec::new(),
         }

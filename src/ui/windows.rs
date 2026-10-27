@@ -66,7 +66,7 @@ impl RustNoteApp {
         if self.show_shortcuts {
             let mut open = true;
             egui::Window::new(tr("Keyboard Shortcuts")).open(&mut open).resizable(false).show(ctx, |ui| {
-                let rows: [(&str, &str); 22] = [
+                let rows: [(&str, &str); 23] = [
                     ("New / Open / Save", "Ctrl+N / Ctrl+O / Ctrl+S"),
                     ("Save All / Save As", "Ctrl+Shift+S / Ctrl+Alt+S"),
                     ("Close tab / Restore tab", "Ctrl+W / Ctrl+Shift+T"),
@@ -74,6 +74,7 @@ impl RustNoteApp {
                     ("Find / Replace", "Ctrl+F / Ctrl+H"),
                     ("Find next / previous", "F3 / Shift+F3"),
                     ("Go to line", "Ctrl+G"),
+                    ("Command palette", "Ctrl+Shift+P"),
                     ("Duplicate line", "Ctrl+D"),
                     ("Delete line", "Ctrl+L"),
                     ("Move line up / down", "Ctrl+Shift+Up / Down"),

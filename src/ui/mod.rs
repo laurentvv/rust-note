@@ -2,8 +2,10 @@
 
 pub mod dialogs;
 pub mod editor;
+pub mod fonts;
 pub mod icon;
 pub mod menu;
+pub mod palette;
 pub mod sidebar;
 pub mod status;
 pub mod tabs;

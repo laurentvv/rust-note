@@ -17,6 +17,9 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 fancy-regex = "0.20.0"
 
+[target.'cfg(windows)'.dependencies]
+windows-registry = "0.100.0"
+
 [profile.release]
 opt-level = 3
 lto = "thin"

@@ -15,7 +15,10 @@ use crate::plugins;
 use crate::search::{self, SearchOptions};
 use crate::settings::Settings;
 use crate::syntax::Language;
-use crate::ui::dialogs::{self, FindReplaceState, FindTab, GoToLineState, AboutState, SummaryState};
+use crate::ui::dialogs::{
+    self, AboutState, FindReplaceState, FindTab, GoToLineState, SummaryState,
+};
+use crate::ui::palette::CommandPalette;
 use eframe::egui::{self, Context};
 
 pub use crate::ui::themes::EditorTheme;
@@ -47,6 +50,8 @@ pub struct RustNoteApp {
     pub settings: Settings,
     pub completion: CompletionState,
     pub show_shortcuts: bool,
+    pub palette: CommandPalette,
+    last_theme_check: std::time::Instant,
     pub(crate) symbol_cache: Option<(usize, u64, Language, Vec<crate::syntax::DocumentSymbol>)>,
     saved_settings: Settings,
 }
@@ -119,7 +124,7 @@ impl RustNoteApp {
 
         let initial_lang = docs.first().and_then(|d| d.language).unwrap_or(Language::PlainText);
 
-        let app = Self {
+        let mut app = Self {
             docs,
             active_index: 0,
             cli_args: cli,
@@ -141,11 +146,17 @@ impl RustNoteApp {
             force_quit: false,
             completion: CompletionState::default(),
             show_shortcuts: false,
+            palette: CommandPalette::default(),
+            last_theme_check: std::time::Instant::now(),
             symbol_cache: None,
             saved_settings: settings.clone(),
             settings,
         };
+        crate::ui::fonts::install_fonts(&cc.egui_ctx);
         app.apply_theme(&cc.egui_ctx);
+        if app.settings.follow_windows_theme {
+            app.sync_theme_with_windows(&cc.egui_ctx);
+        }
         app
     }
 
@@ -361,6 +372,10 @@ impl RustNoteApp {
     pub fn close_all(&mut self) {
         let mut i = 0;
         while i < self.docs.len() {
+            if self.docs[i].is_pinned {
+                i += 1;
+                continue;
+            }
             if !self.confirm_close(i) {
                 self.active_index = self.active_index.min(self.docs.len() - 1);
                 return;
@@ -369,10 +384,16 @@ impl RustNoteApp {
         }
         let docs = std::mem::take(&mut self.docs);
         for d in docs {
-            self.remember_closed(d);
+            if !d.is_pinned {
+                self.remember_closed(d);
+            } else {
+                self.docs.push(d);
+            }
         }
-        self.docs.push(Document::new_empty(Some("new 1")));
-        self.active_index = 0;
+        if self.docs.is_empty() {
+            self.docs.push(Document::new_empty(Some("new 1")));
+        }
+        self.active_index = self.active_index.min(self.docs.len() - 1);
         self.set_notification("All documents closed");
     }
 
@@ -380,7 +401,7 @@ impl RustNoteApp {
         let Some(keep_id) = self.docs.get(keep).map(|d| d.id) else { return };
         let mut i = 0;
         while i < self.docs.len() {
-            if self.docs[i].id == keep_id {
+            if self.docs[i].id == keep_id || self.docs[i].is_pinned {
                 i += 1;
                 continue;
             }
@@ -390,7 +411,11 @@ impl RustNoteApp {
             let doc = self.docs.remove(i);
             self.remember_closed(doc);
         }
-        self.active_index = 0;
+        self.active_index = self
+            .docs
+            .iter()
+            .position(|d| d.id == keep_id)
+            .unwrap_or(0);
         self.set_notification("Closed other documents");
     }
 
@@ -735,6 +760,10 @@ impl RustNoteApp {
         if hit(ca, Key::L) {
             self.show_function_list = !self.show_function_list;
         }
+        // Command palette
+        if hit(cs, Key::P) {
+            self.open_command_palette();
+        }
         // Undo / redo operate on our own history (typing is recorded into it).
         if hit(Modifiers::CTRL, Key::Z) {
             if let Some(doc) = self.active_doc_mut() {
@@ -939,6 +968,12 @@ impl eframe::App for RustNoteApp {
             }
         }
 
+        // Track the Windows theme (light/dark) for the "Follow Windows Theme" option
+        if self.settings.follow_windows_theme && self.last_theme_check.elapsed() > std::time::Duration::from_secs(5) {
+            self.last_theme_check = std::time::Instant::now();
+            self.sync_theme_with_windows(ctx);
+        }
+
         // Persist settings / session when they change
         {
             let mut cur = self.settings.clone();
@@ -969,6 +1004,7 @@ impl eframe::App for RustNoteApp {
             self.render_function_list(ui);
         }
         self.render_editor(ui);
+        self.render_command_palette(ui.ctx());
         self.render_dialogs(ui.ctx());
     }
 }

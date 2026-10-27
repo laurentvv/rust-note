@@ -347,6 +347,14 @@ impl RustNoteApp {
                     ui.checkbox(&mut self.word_wrap, tr("Word Wrap"));
                     ui.checkbox(&mut self.show_line_numbers, tr("Line Numbers"));
                     ui.checkbox(&mut self.show_function_list, tr("Function List (Ctrl+Alt+L)"));
+                    let mut follow = self.settings.follow_windows_theme;
+                    ui.checkbox(&mut follow, tr("Follow Windows Theme"));
+                    if follow != self.settings.follow_windows_theme {
+                        self.settings.follow_windows_theme = follow;
+                        if follow {
+                            self.sync_theme_with_windows(&ctx);
+                        }
+                    }
                     ui.separator();
                     if ui.button(tr("Zoom In (Ctrl+Num+)")).clicked() {
                         self.font_size = (self.font_size + 2.0).min(36.0);
@@ -372,9 +380,7 @@ impl RustNoteApp {
                     ui.menu_button(tr("Theme"), |ui| {
                         for t in EditorTheme::ALL {
                             if ui.selectable_label(self.theme == t, t.name()).clicked() {
-                                self.theme = t;
-                                self.apply_theme(&ctx);
-                                self.set_notification(format!("Theme: {}", t.name()));
+                                self.set_theme(t, &ctx);
                                 ui.close();
                             }
                         }

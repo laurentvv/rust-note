@@ -343,6 +343,18 @@ fn fr(s: &str) -> Option<&'static str> {
         "INS" => "INS",
         "Word wrap turned off for column selection" => "Retour à la ligne désactivé pour la sélection en colonne",
         "OK" => "OK",
+        // Tabs / palette / themes
+        "Pin Tab" => "Épingler l'onglet",
+        "Unpin Tab" => "Détacher l'onglet",
+        "Tab pinned" => "Onglet épinglé",
+        "Tab unpinned" => "Onglet détaché",
+        "Command Palette" => "Palette de commandes",
+        "Command palette" => "Palette de commandes",
+        "Command Palette (Ctrl+Shift+P)" => "Palette de commandes (Ctrl+Shift+P)",
+        "Type a command..." => "Saisir une commande...",
+        "No matching command" => "Aucune commande correspondante",
+        "Navigate" => "Naviguer",
+        "Follow Windows Theme" => "Suivre le thème Windows",
         _ => return None,
     })
 }
@@ -380,7 +392,18 @@ mod tests {
     #[test]
     fn all_ui_literals_are_translated() {
         let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let sources = [include_str!("app.rs"), include_str!("ui/dialogs.rs")];
+        let sources = [
+            include_str!("app.rs"),
+            include_str!("ui/dialogs.rs"),
+            include_str!("ui/editor.rs"),
+            include_str!("ui/menu.rs"),
+            include_str!("ui/palette.rs"),
+            include_str!("ui/sidebar.rs"),
+            include_str!("ui/status.rs"),
+            include_str!("ui/tabs.rs"),
+            include_str!("ui/toolbar.rs"),
+            include_str!("ui/windows.rs"),
+        ];
         // Names, formats and symbols that are identical in French
         let neutral = [
             "?", "+", "×", "➕", "➖", "OK", "UTF-8", "UTF-8-BOM", "UTF-16 LE", "UTF-16 BE", "ANSI (Windows-1252)",
@@ -439,7 +462,19 @@ mod tests {
     #[test]
     fn every_tooltip_is_routed_through_tr() {
         let mut offenders = Vec::new();
-        for (name, src) in [("app.rs", include_str!("app.rs")), ("dialogs.rs", include_str!("ui/dialogs.rs"))] {
+        let files = [
+            ("app.rs", include_str!("app.rs")),
+            ("dialogs.rs", include_str!("ui/dialogs.rs")),
+            ("editor.rs", include_str!("ui/editor.rs")),
+            ("menu.rs", include_str!("ui/menu.rs")),
+            ("palette.rs", include_str!("ui/palette.rs")),
+            ("sidebar.rs", include_str!("ui/sidebar.rs")),
+            ("status.rs", include_str!("ui/status.rs")),
+            ("tabs.rs", include_str!("ui/tabs.rs")),
+            ("toolbar.rs", include_str!("ui/toolbar.rs")),
+            ("windows.rs", include_str!("ui/windows.rs")),
+        ];
+        for (name, src) in files {
             for (n, line) in src.lines().enumerate() {
                 if line.contains(".on_hover_text(") && !line.contains("tr(") && !line.contains("path.display()") {
                     offenders.push(format!("{name}:{}: {}", n + 1, line.trim()));
